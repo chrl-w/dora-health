@@ -1,6 +1,15 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Pill, Clock } from 'lucide-react'
 import { AddMedicationSheet, type MedicationDraft } from './AddMedicationSheet'
+
+/** Derive a light tint background from a hex colour (10% opacity feel). */
+function lightTint(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const mix = (c: number) => Math.round(c + (255 - c) * 0.88)
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`
+}
 
 const STORAGE_KEY = 'dora_profile'
 
@@ -46,24 +55,50 @@ export function Medications() {
       {medications.length > 0 && (
         <div className="flex flex-col gap-[10px] mt-[14px]">
           {medications.map((med, i) => (
-            <div
+            <button
               key={`${med.name}-${i}`}
-              className="bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] p-[14px] flex items-center gap-[12px]"
+              type="button"
+              className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] p-[16px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] text-left"
             >
-              <div
-                className="w-[10px] h-[10px] rounded-full shrink-0"
-                style={{ backgroundColor: med.colour }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="font-dm-sans font-medium text-[15px] text-[#1C1917]">
-                  {med.name}
-                </p>
-                <p className="font-dm-sans font-normal text-[12px] text-[#78716C]">
-                  {med.dose} · Every {med.frequencyAmount}{' '}
-                  {med.frequencyUnit}
-                </p>
+              <div className="flex items-center gap-[12px]">
+                {/* Pill icon */}
+                <div
+                  className="w-[36px] h-[36px] rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: lightTint(med.colour) }}
+                >
+                  <Pill
+                    className="w-[18px] h-[18px]"
+                    style={{ color: med.colour }}
+                  />
+                </div>
+
+                {/* Text content */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-dm-sans font-semibold text-[15px] text-[#1C1917]">
+                    {med.name}
+                  </p>
+                  <p className="font-dm-sans font-normal text-[10px] text-[#78716C] mt-[2px]">
+                    {med.dose} · Every {med.frequencyAmount}{' '}
+                    {med.frequencyUnit}
+                  </p>
+                </div>
+
+                {/* Condition badge */}
+                {med.condition && (
+                  <span className="bg-[#F0E8DA] rounded-full px-[8px] py-[2px] font-dm-sans font-medium text-[9px] text-[#78716C] shrink-0">
+                    {med.condition}
+                  </span>
+                )}
               </div>
-            </div>
+
+              {/* Tracking row */}
+              <div className="flex items-center gap-[4px] mt-[10px] ml-[48px]">
+                <Clock className="w-[12px] h-[12px] text-[#78716C]" />
+                <span className="font-dm-sans font-normal text-[10px] text-[#78716C]">
+                  {med.trackDoses ? 'Next: Today' : 'Not tracking'}
+                </span>
+              </div>
+            </button>
           ))}
         </div>
       )}
