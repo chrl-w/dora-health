@@ -1,0 +1,75 @@
+import type { ReactNode } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X } from 'lucide-react'
+
+interface BottomSheetProps {
+  open: boolean
+  onClose: () => void
+  title: string
+  /** Optional icon rendered before the title */
+  titleIcon?: ReactNode
+  children: ReactNode
+}
+
+export function BottomSheet({
+  open,
+  onClose,
+  title,
+  titleIcon,
+  children,
+}: BottomSheetProps) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Overlay */}
+          <motion.div
+            className="fixed inset-0 bg-black/30 z-40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+          />
+
+          {/* Sheet */}
+          <motion.div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[#FAF6F0] rounded-t-[20px] shadow-[0px_-4px_20px_rgba(0,0,0,0.1)] max-w-[402px] mx-auto max-h-[85vh] flex flex-col"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+          >
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-[36px] h-[4px] rounded-full bg-[#D4C8BA]" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-[24px] pb-[16px]">
+              <div className="flex items-center gap-[10px]">
+                {titleIcon}
+                <h2 className="font-bricolage font-semibold text-[22px] text-[#1C1917]">
+                  {title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors"
+                aria-label="Close"
+                onClick={onClose}
+              >
+                <X className="w-[14px] h-[14px] text-[#78716C]" />
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-[24px] pb-[32px]">
+              {children}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}
