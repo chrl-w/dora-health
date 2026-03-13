@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Pill, Clock } from 'lucide-react'
 import { AddMedicationSheet, type MedicationDraft } from './AddMedicationSheet'
+import { MedicationDetailSheet } from './MedicationDetailSheet'
 
 /** Derive a light tint background from a hex colour (10% opacity feel). */
 function lightTint(hex: string): string {
@@ -29,10 +30,17 @@ function loadConditions(): string[] {
 export function Medications() {
   const [isAdding, setIsAdding] = useState(false)
   const [medications, setMedications] = useState<MedicationDraft[]>([])
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
   function handleAdd(med: MedicationDraft) {
     setMedications((prev) => [...prev, med])
     setIsAdding(false)
+  }
+
+  function handleRemove() {
+    if (selectedIndex === null) return
+    setMedications((prev) => prev.filter((_, i) => i !== selectedIndex))
+    setSelectedIndex(null)
   }
 
   return (
@@ -58,6 +66,7 @@ export function Medications() {
             <button
               key={`${med.name}-${i}`}
               type="button"
+              onClick={() => setSelectedIndex(i)}
               className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] p-[16px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] text-left"
             >
               <div className="flex items-center gap-[12px]">
@@ -77,7 +86,7 @@ export function Medications() {
                   <p className="font-dm-sans font-semibold text-[15px] text-[#1C1917]">
                     {med.name}
                   </p>
-                  <p className="font-dm-sans font-normal text-[10px] text-[#78716C] mt-[2px]">
+                  <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[2px]">
                     {med.dose} · Every {med.frequencyAmount}{' '}
                     {med.frequencyUnit}
                   </p>
@@ -85,7 +94,7 @@ export function Medications() {
 
                 {/* Condition badge */}
                 {med.condition && (
-                  <span className="bg-[#F0E8DA] rounded-full px-[8px] py-[2px] font-dm-sans font-medium text-[9px] text-[#78716C] shrink-0">
+                  <span className="bg-[#F0E8DA] rounded-full px-[8px] py-[2px] font-dm-sans font-medium text-[11px] text-[#78716C] shrink-0">
                     {med.condition}
                   </span>
                 )}
@@ -94,7 +103,7 @@ export function Medications() {
               {/* Tracking row */}
               <div className="flex items-center gap-[4px] mt-[10px] ml-[48px]">
                 <Clock className="w-[12px] h-[12px] text-[#78716C]" />
-                <span className="font-dm-sans font-normal text-[10px] text-[#78716C]">
+                <span className="font-dm-sans font-normal text-[12px] text-[#78716C]">
                   {med.trackDoses ? 'Next: Today' : 'Not tracking'}
                 </span>
               </div>
@@ -108,6 +117,13 @@ export function Medications() {
         onClose={() => setIsAdding(false)}
         conditions={loadConditions()}
         onAdd={handleAdd}
+      />
+
+      <MedicationDetailSheet
+        open={selectedIndex !== null}
+        onClose={() => setSelectedIndex(null)}
+        medication={selectedIndex !== null ? medications[selectedIndex] : null}
+        onRemove={handleRemove}
       />
     </div>
   )
