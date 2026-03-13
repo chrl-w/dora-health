@@ -167,40 +167,42 @@ export function Header() {
             />
           </div>
 
-          {/* Species */}
-          <div>
-            <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
-              Species
-            </label>
-            <input
-              type="text"
-              value={draft.species}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, species: e.target.value }))
-              }
-              className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
-              placeholder="e.g. Cat, Dog"
-            />
-          </div>
+          {/* Species & Age row */}
+          <div className="flex gap-[12px]">
+            <div className="flex-1">
+              <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
+                Species
+              </label>
+              <select
+                value={draft.species}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, species: e.target.value }))
+                }
+                className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors appearance-none"
+              >
+                <option value="Cat">Cat</option>
+                <option value="Dog">Dog</option>
+              </select>
+            </div>
 
-          {/* Age */}
-          <div>
-            <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
-              Age
-            </label>
-            <input
-              type="number"
-              value={draft.age}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  age: parseInt(e.target.value, 10) || 0,
-                }))
-              }
-              min={0}
-              className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
-              placeholder="Age in years"
-            />
+            <div className="flex-1">
+              <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
+                Age (years)
+              </label>
+              <input
+                type="number"
+                value={draft.age}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    age: parseInt(e.target.value, 10) || 0,
+                  }))
+                }
+                min={0}
+                className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+                placeholder="Age in years"
+              />
+            </div>
           </div>
 
           {/* Conditions */}
@@ -262,7 +264,7 @@ export function Header() {
         <button
           type="button"
           onClick={handleSave}
-          className="w-full mt-[16px] bg-[#C4623A] rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[15px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all"
+          className="w-full mt-[16px] bg-[#C4623A] rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all"
         >
           Save changes
         </button>

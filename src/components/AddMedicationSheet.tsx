@@ -224,7 +224,7 @@ export function AddMedicationSheet({
         {/* Track doses */}
         <div className="flex items-start justify-between gap-[12px]">
           <div>
-            <p className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
+            <p className="font-dm-sans font-medium text-[13px] text-[#1C1917]">
               Track doses
             </p>
             <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[2px]">
@@ -256,14 +256,14 @@ export function AddMedicationSheet({
         <button
           type="button"
           onClick={handleClose}
-          className="flex-1 rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[15px] text-[#78716C] hover:bg-[#F0E8DA] transition-colors"
+          className="flex-1 rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-[#78716C] hover:bg-[#F0E8DA] transition-colors"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={handleAdd}
-          className="flex-1 bg-[#C4623A] rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[15px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all"
+          className="flex-1 bg-[#C4623A] rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all"
         >
           Add medication
         </button>
