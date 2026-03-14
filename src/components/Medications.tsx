@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react'
 import { Plus, Pill, Clock } from 'lucide-react'
 import { AddMedicationSheet, type MedicationDraft } from './AddMedicationSheet'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
+import { lightTint } from '../utils/colourUtils'
 
-/** Derive a light tint background from a hex colour (10% opacity feel). */
-function lightTint(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const mix = (c: number) => Math.round(c + (255 - c) * 0.88)
-  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`
+/** Singularise a frequency unit when the amount is 1 (e.g. "days" → "day"). */
+function pluralUnit(amount: number | string, unit: string): string {
+  const n = typeof amount === 'number' ? amount : parseFloat(String(amount))
+  return n === 1 ? unit.replace(/s$/, '') : unit
 }
 
 const STORAGE_KEY = 'dora_profile'
@@ -107,6 +105,16 @@ export function Medications() {
 
   function handleSave(updated: MedicationDraft) {
     if (selectedIndex === null) return
+    const oldMed = medications[selectedIndex]
+    // Migrate dose history to new key if the medication was renamed
+    if (oldMed && oldMed.name !== updated.name) {
+      const allHistory = loadAllDoseHistory()
+      if (allHistory[oldMed.name]) {
+        allHistory[updated.name] = allHistory[oldMed.name]
+        delete allHistory[oldMed.name]
+        localStorage.setItem(DOSE_HISTORY_KEY, JSON.stringify(allHistory))
+      }
+    }
     setMedications((prev) =>
       prev.map((m, i) => (i === selectedIndex ? updated : m)),
     )
@@ -179,7 +187,7 @@ export function Medications() {
                   </p>
                   <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[2px]">
                     {med.dose} · Every {med.frequencyAmount}{' '}
-                    {med.frequencyUnit}
+                    {pluralUnit(med.frequencyAmount, med.frequencyUnit)}
                   </p>
                 </div>
 

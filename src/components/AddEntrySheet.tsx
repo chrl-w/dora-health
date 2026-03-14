@@ -33,9 +33,9 @@ export function formatDateDisplay(iso: string): string {
   if (!iso) return ''
   const [year, month, day] = iso.split('-').map(Number)
   const date = new Date(year, month - 1, day)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
+  return date.toLocaleDateString('en-GB', {
     day: 'numeric',
+    month: 'short',
     year: 'numeric',
   })
 }

@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Pill, Clock, Check, Calendar, Droplets, Pencil } from 'lucide-react'
 import type { MedicationDraft } from './AddMedicationSheet'
 import { COLOUR_OPTIONS, FREQUENCY_UNITS, EMPTY_DRAFT } from './AddMedicationSheet'
+import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
+import { lightTint } from '../utils/colourUtils'
 
 /* ─── Types ─── */
 
@@ -54,12 +56,10 @@ function saveDoseHistory(medName: string, history: DoseRecord[]) {
 
 /* ─── Helpers ─── */
 
-function lightTint(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const mix = (c: number) => Math.round(c + (255 - c) * 0.88)
-  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`
+/** Singularise a frequency unit when the amount is 1 (e.g. "days" → "day"). */
+function pluralUnit(amount: number | string, unit: string): string {
+  const n = typeof amount === 'number' ? amount : parseFloat(String(amount))
+  return n === 1 ? unit.replace(/s$/, '') : unit
 }
 
 function formatDate(date: Date): string {
@@ -108,15 +108,13 @@ export function MedicationDetailSheet({
       setIsEditing(false)
       setShowRemoveConfirm(false)
     }
-  }, [open])
+  }, [open, medication])
 
   // Prevent background page from scrolling when sheet is open
   useEffect(() => {
     if (open) {
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = ''
-      }
+      lockBodyScroll()
+      return () => unlockBodyScroll()
     }
   }, [open])
 
@@ -227,7 +225,7 @@ export function MedicationDetailSheet({
                   </h2>
                   <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[1px]">
                     {medication.dose} · Every {medication.frequencyAmount}{' '}
-                    {medication.frequencyUnit}
+                    {pluralUnit(medication.frequencyAmount, medication.frequencyUnit)}
                   </p>
                 </div>
               </div>
@@ -557,7 +555,7 @@ export function MedicationDetailSheet({
                       </span>
                       <span className="font-dm-sans font-medium text-[13px] text-[#1C1917] text-right">
                         Every {medication.frequencyAmount}{' '}
-                        {medication.frequencyUnit}
+                        {pluralUnit(medication.frequencyAmount, medication.frequencyUnit)}
                       </span>
                     </div>
 

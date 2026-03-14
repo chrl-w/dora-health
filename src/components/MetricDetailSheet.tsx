@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ChevronDown, ChevronUp } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import type { HealthMetric, MetricConfig, MetricReading, MetricTrend } from './HealthMetrics'
+import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
 
 /* ─── Props ─── */
 
@@ -67,6 +68,17 @@ function getRowChangeInfo(
   return { text: `${arrow} ${formatted} ${unit}`, color }
 }
 
+function formatPickerDate(iso: string): string {
+  if (!iso) return ''
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 function todayDateString(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -96,10 +108,8 @@ export function MetricDetailSheet({
 
   useEffect(() => {
     if (open) {
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = ''
-      }
+      lockBodyScroll()
+      return () => unlockBodyScroll()
     }
   }, [open])
 
@@ -202,12 +212,18 @@ export function MetricDetailSheet({
                     <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
                       Date
                     </label>
-                    <input
-                      type="date"
-                      value={dateInput}
-                      onChange={(e) => setDateInput(e.target.value)}
-                      className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors"
-                    />
+                    <div className="relative">
+                      <div className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] flex items-center justify-between">
+                        <span>{formatPickerDate(dateInput)}</span>
+                        <Calendar className="w-[16px] h-[16px] text-[#78716C] shrink-0" />
+                      </div>
+                      <input
+                        type="date"
+                        value={dateInput}
+                        onChange={(e) => setDateInput(e.target.value)}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                      />
+                    </div>
                   </div>
 
                   {/* Save */}
