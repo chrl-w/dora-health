@@ -23,7 +23,7 @@ export interface MedicationDraft {
 
 /* ─── Constants ─── */
 
-const COLOUR_OPTIONS = [
+export const COLOUR_OPTIONS = [
   '#C4623A',
   '#7D9E7E',
   '#8B7355',
@@ -32,9 +32,9 @@ const COLOUR_OPTIONS = [
   '#6B8FA8',
 ]
 
-const FREQUENCY_UNITS = ['hours', 'days', 'weeks', 'months']
+export const FREQUENCY_UNITS = ['hours', 'days', 'weeks', 'months']
 
-const EMPTY_DRAFT: MedicationDraft = {
+export const EMPTY_DRAFT: MedicationDraft = {
   name: '',
   dose: '',
   condition: '',
