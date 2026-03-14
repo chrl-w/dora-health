@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="114" fill="#F0E7DA"/>
+
+  <!-- Cat face illustration (scaled from 32×32 source, recoloured to #C4623A) -->
+  <g transform="translate(32, 36) scale(14)" stroke="#C4623A" fill="none">
+    <!-- Left ear -->
+    <path d="M7.99998 12.8L5.59998 4.79999L12 10.4" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Right ear -->
+    <path d="M24 12.8L26.4 4.79999L20 10.4" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Head -->
+    <path d="M16 26.4C21.302 26.4 25.6 22.4601 25.6 17.6C25.6 12.7399 21.302 8.79999 16 8.79999C10.6981 8.79999 6.40002 12.7399 6.40002 17.6C6.40002 22.4601 10.6981 26.4 16 26.4Z" stroke-width="1.2"/>
+    <!-- Left eye -->
+    <path d="M12 17.2C12.6628 17.2 13.2 16.6627 13.2 16C13.2 15.3372 12.6628 14.8 12 14.8C11.3373 14.8 10.8 15.3372 10.8 16C10.8 16.6627 11.3373 17.2 12 17.2Z" fill="#C4623A" stroke="none"/>
+    <!-- Right eye -->
+    <path d="M20 17.2C20.6628 17.2 21.2 16.6627 21.2 16C21.2 15.3372 20.6628 14.8 20 14.8C19.3373 14.8 18.8 15.3372 18.8 16C18.8 16.6627 19.3373 17.2 20 17.2Z" fill="#C4623A" stroke="none"/>
+    <!-- Nose -->
+    <path d="M16 19.2L14.8 20.4H17.2L16 19.2Z" fill="#C4623A" stroke="none"/>
+    <!-- Left whiskers -->
+    <path d="M4 16.8L11.2 17.6" stroke-width="0.8" stroke-linecap="round"/>
+    <path d="M4 20L11.2 19.2" stroke-width="0.8" stroke-linecap="round"/>
+    <!-- Right whiskers -->
+    <path d="M28 16.8L20.8 17.6" stroke-width="0.8" stroke-linecap="round"/>
+    <path d="M28 20L20.8 19.2" stroke-width="0.8" stroke-linecap="round"/>
+  </g>
+</svg>
