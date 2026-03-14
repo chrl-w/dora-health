@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
+import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
 
 interface BottomSheetProps {
   open: boolean
@@ -21,10 +22,8 @@ export function BottomSheet({
   // Prevent background page from scrolling when sheet is open
   useEffect(() => {
     if (open) {
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = ''
-      }
+      lockBodyScroll()
+      return () => unlockBodyScroll()
     }
   }, [open])
 
