@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Pill, Clock, Check, Calendar, Droplets } from 'lucide-react'
 import type { MedicationDraft } from './AddMedicationSheet'
@@ -15,6 +15,38 @@ interface MedicationDetailSheetProps {
 interface DoseRecord {
   date: Date
   id: string
+}
+
+interface StoredDoseRecord {
+  date: string
+  id: string
+}
+
+const DOSE_HISTORY_KEY = 'dora_dose_history'
+
+function loadDoseHistory(medName: string): DoseRecord[] {
+  try {
+    const raw = localStorage.getItem(DOSE_HISTORY_KEY)
+    if (raw) {
+      const all: Record<string, StoredDoseRecord[]> = JSON.parse(raw)
+      const records = all[medName] ?? []
+      return records.map((r) => ({ ...r, date: new Date(r.date) }))
+    }
+  } catch {
+    /* fall back */
+  }
+  return []
+}
+
+function saveDoseHistory(medName: string, history: DoseRecord[]) {
+  try {
+    const raw = localStorage.getItem(DOSE_HISTORY_KEY)
+    const all: Record<string, StoredDoseRecord[]> = raw ? JSON.parse(raw) : {}
+    all[medName] = history.map((r) => ({ ...r, date: r.date.toISOString() }))
+    localStorage.setItem(DOSE_HISTORY_KEY, JSON.stringify(all))
+  } catch {
+    /* ignore */
+  }
 }
 
 /* ─── Helpers ─── */
@@ -62,14 +94,42 @@ export function MedicationDetailSheet({
   const [doseHistory, setDoseHistory] = useState<DoseRecord[]>([])
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
 
+  // Prevent background page from scrolling when sheet is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = ''
+      }
+    }
+  }, [open])
+
+  // Load dose history from localStorage when medication changes
+  useEffect(() => {
+    if (medication) {
+      setDoseHistory(loadDoseHistory(medication.name))
+    }
+  }, [medication])
+
+  // Persist dose history when it changes
+  const persistHistory = useCallback(
+    (history: DoseRecord[]) => {
+      if (medication) {
+        saveDoseHistory(medication.name, history)
+      }
+    },
+    [medication]
+  )
+
   if (!medication) return null
 
   function handleRecordDose() {
     const now = new Date()
-    setDoseHistory((prev) => [
-      { date: now, id: `${now.getTime()}` },
-      ...prev,
-    ])
+    setDoseHistory((prev) => {
+      const updated = [{ date: now, id: `${now.getTime()}` }, ...prev]
+      persistHistory(updated)
+      return updated
+    })
   }
 
   function handleRemove() {
@@ -178,46 +238,48 @@ export function MedicationDetailSheet({
                 </div>
               )}
 
-              {/* History section */}
-              <div className="mb-[20px]">
-                <h3 className="font-dm-sans font-semibold text-[14px] text-[#1C1917] mb-[10px]">
-                  History
-                </h3>
-                {doseHistory.length === 0 ? (
-                  <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[20px] text-center">
-                    <Droplets className="w-[24px] h-[24px] text-[#D4C8BA] mx-auto mb-[8px]" />
-                    <p className="font-dm-sans font-medium text-[13px] text-[#78716C]">
-                      No doses recorded yet
-                    </p>
-                    <p className="font-dm-sans font-normal text-[11px] text-[#A8A29E] mt-[4px]">
-                      Once you start logging, your pet's dose history will
-                      appear here — like little paw prints through time.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-[6px]">
-                    {doseHistory.map((record) => (
-                      <div
-                        key={record.id}
-                        className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] flex items-center gap-[10px]"
-                      >
-                        <div className="w-[28px] h-[28px] rounded-full bg-[#7D9E7E]/20 flex items-center justify-center shrink-0">
-                          <Check className="w-[14px] h-[14px] text-[#7D9E7E]" />
+              {/* History section - only shown when tracking is enabled */}
+              {medication.trackDoses && (
+                <div className="mb-[20px]">
+                  <h3 className="font-dm-sans font-semibold text-[14px] text-[#1C1917] mb-[10px]">
+                    History
+                  </h3>
+                  {doseHistory.length === 0 ? (
+                    <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[20px] text-center">
+                      <Droplets className="w-[24px] h-[24px] text-[#D4C8BA] mx-auto mb-[8px]" />
+                      <p className="font-dm-sans font-medium text-[13px] text-[#78716C]">
+                        No doses recorded yet
+                      </p>
+                      <p className="font-dm-sans font-normal text-[11px] text-[#A8A29E] mt-[4px]">
+                        Once you start logging, your pet's dose history will
+                        appear here - like little paw prints through time.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-[6px]">
+                      {doseHistory.map((record) => (
+                        <div
+                          key={record.id}
+                          className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] flex items-center gap-[10px]"
+                        >
+                          <div className="w-[28px] h-[28px] rounded-full bg-[#7D9E7E]/20 flex items-center justify-center shrink-0">
+                            <Check className="w-[14px] h-[14px] text-[#7D9E7E]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-dm-sans font-medium text-[13px] text-[#1C1917]">
+                              Dose given
+                            </p>
+                            <p className="font-dm-sans font-normal text-[11px] text-[#78716C]">
+                              {formatDate(record.date)} at{' '}
+                              {formatTime(record.date)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-dm-sans font-medium text-[13px] text-[#1C1917]">
-                            Dose given
-                          </p>
-                          <p className="font-dm-sans font-normal text-[11px] text-[#78716C]">
-                            {formatDate(record.date)} at{' '}
-                            {formatTime(record.date)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Medication details section */}
               <div className="mb-[20px]">

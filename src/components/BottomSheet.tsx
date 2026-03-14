@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 
@@ -18,6 +18,16 @@ export function BottomSheet({
   titleIcon,
   children,
 }: BottomSheetProps) {
+  // Prevent background page from scrolling when sheet is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = ''
+      }
+    }
+  }, [open])
+
   return (
     <AnimatePresence>
       {open && (

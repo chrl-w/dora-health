@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Pill, Clock } from 'lucide-react'
 import { AddMedicationSheet, type MedicationDraft } from './AddMedicationSheet'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
@@ -13,6 +13,7 @@ function lightTint(hex: string): string {
 }
 
 const STORAGE_KEY = 'dora_profile'
+const MEDICATIONS_STORAGE_KEY = 'dora_medications'
 
 function loadConditions(): string[] {
   try {
@@ -27,10 +28,25 @@ function loadConditions(): string[] {
   return ['Hip dysplasia', 'Hyperthyroidism']
 }
 
+function loadMedications(): MedicationDraft[] {
+  try {
+    const raw = localStorage.getItem(MEDICATIONS_STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {
+    /* fall back */
+  }
+  return []
+}
+
 export function Medications() {
   const [isAdding, setIsAdding] = useState(false)
-  const [medications, setMedications] = useState<MedicationDraft[]>([])
+  const [medications, setMedications] = useState<MedicationDraft[]>(loadMedications)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+
+  // Persist medications to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(MEDICATIONS_STORAGE_KEY, JSON.stringify(medications))
+  }, [medications])
 
   function handleAdd(med: MedicationDraft) {
     setMedications((prev) => [...prev, med])
