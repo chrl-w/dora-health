@@ -61,6 +61,23 @@ export function Header() {
     setIsEditing(true)
   }
 
+  async function handleShare() {
+    const conditionsText = profile.conditions.length > 0
+      ? profile.conditions.join(', ')
+      : 'None'
+    const text = `Pet name: ${profile.name}\nSpecies: ${profile.species}\nAge: ${profile.age}\nConditions: ${conditionsText}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ text })
+      } catch {
+        /* user cancelled or share failed — no action needed */
+      }
+    } else {
+      await navigator.clipboard.writeText(text)
+    }
+  }
+
   function handleSave() {
     setProfile(draft)
     setIsEditing(false)
@@ -110,6 +127,7 @@ export function Header() {
               <div className="flex items-center gap-[8px] mt-[4px]">
                 <button
                   type="button"
+                  onClick={handleShare}
                   className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors"
                   aria-label="Share profile"
                 >

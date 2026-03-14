@@ -14,6 +14,50 @@ function lightTint(hex: string): string {
 
 const STORAGE_KEY = 'dora_profile'
 const MEDICATIONS_STORAGE_KEY = 'dora_medications'
+const DOSE_HISTORY_KEY = 'dora_dose_history'
+
+interface StoredDoseRecord {
+  date: string
+  id: string
+}
+
+function loadAllDoseHistory(): Record<string, StoredDoseRecord[]> {
+  try {
+    const raw = localStorage.getItem(DOSE_HISTORY_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch { /* fall back */ }
+  return {}
+}
+
+function calcNextDue(med: MedicationDraft, history: StoredDoseRecord[]): { label: string; overdue: boolean } {
+  if (!med.trackDoses) return { label: 'Not tracking', overdue: false }
+  if (!history || history.length === 0) return { label: 'No doses yet', overdue: false }
+
+  const lastDose = new Date(history[0].date)
+  const amount = typeof med.frequencyAmount === 'number' ? med.frequencyAmount : 1
+  const msMap: Record<string, number> = {
+    hours: 3_600_000,
+    days: 86_400_000,
+    weeks: 7 * 86_400_000,
+    months: 30 * 86_400_000,
+  }
+  const ms = amount * (msMap[med.frequencyUnit] ?? 86_400_000)
+  const nextDue = new Date(lastDose.getTime() + ms)
+
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrow = new Date(today.getTime() + 86_400_000)
+  const nextDay = new Date(nextDue.getFullYear(), nextDue.getMonth(), nextDue.getDate())
+
+  if (nextDay.getTime() < today.getTime()) return { label: 'Overdue', overdue: true }
+  if (nextDay.getTime() === today.getTime()) return { label: 'Next: Today', overdue: false }
+  if (nextDay.getTime() === tomorrow.getTime()) return { label: 'Next: Tomorrow', overdue: false }
+
+  return {
+    label: `Next: ${nextDue.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+    overdue: false,
+  }
+}
 
 function loadConditions(): string[] {
   try {
@@ -42,6 +86,7 @@ export function Medications() {
   const [isAdding, setIsAdding] = useState(false)
   const [medications, setMedications] = useState<MedicationDraft[]>(loadMedications)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [doseHistory, setDoseHistory] = useState<Record<string, StoredDoseRecord[]>>(loadAllDoseHistory)
 
   // Persist medications to localStorage whenever they change
   useEffect(() => {
@@ -57,6 +102,7 @@ export function Medications() {
     if (selectedIndex === null) return
     setMedications((prev) => prev.filter((_, i) => i !== selectedIndex))
     setSelectedIndex(null)
+    setDoseHistory(loadAllDoseHistory())
   }
 
   function handleSave(updated: MedicationDraft) {
@@ -65,6 +111,12 @@ export function Medications() {
       prev.map((m, i) => (i === selectedIndex ? updated : m)),
     )
     setSelectedIndex(null)
+    setDoseHistory(loadAllDoseHistory())
+  }
+
+  function handleDetailClose() {
+    setSelectedIndex(null)
+    setDoseHistory(loadAllDoseHistory())
   }
 
   return (
@@ -140,12 +192,17 @@ export function Medications() {
               </div>
 
               {/* Tracking row */}
-              <div className="flex items-center gap-[4px] mt-[10px] ml-[48px]">
-                <Clock className="w-[12px] h-[12px] text-[#78716C]" />
-                <span className="font-dm-sans font-normal text-[12px] text-[#78716C]">
-                  {med.trackDoses ? 'Next: Today' : 'Not tracking'}
-                </span>
-              </div>
+              {(() => {
+                const { label, overdue } = calcNextDue(med, doseHistory[med.name] ?? [])
+                return (
+                  <div className="flex items-center gap-[4px] mt-[10px] ml-[48px]">
+                    <Clock className={`w-[12px] h-[12px] ${overdue ? 'text-[#DC2626]' : 'text-[#78716C]'}`} />
+                    <span className={`font-dm-sans font-normal text-[12px] ${overdue ? 'text-[#DC2626] font-medium' : 'text-[#78716C]'}`}>
+                      {label}
+                    </span>
+                  </div>
+                )
+              })()}
             </button>
           ))}
         </div>
@@ -160,7 +217,7 @@ export function Medications() {
 
       <MedicationDetailSheet
         open={selectedIndex !== null}
-        onClose={() => setSelectedIndex(null)}
+        onClose={handleDetailClose}
         medication={selectedIndex !== null ? medications[selectedIndex] : null}
         onRemove={handleRemove}
         onSave={handleSave}
