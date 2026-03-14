@@ -1,11 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Background -->
-  <rect width="512" height="512" rx="114" fill="#C4623A"/>
-  <!-- Paw print: main pad -->
-  <ellipse cx="256" cy="310" rx="82" ry="68" fill="white" opacity="0.92"/>
-  <!-- Toe pads -->
-  <ellipse cx="165" cy="224" rx="38" ry="46" fill="white" opacity="0.92"/>
-  <ellipse cx="220" cy="192" rx="36" ry="44" fill="white" opacity="0.92"/>
-  <ellipse cx="292" cy="192" rx="36" ry="44" fill="white" opacity="0.92"/>
-  <ellipse cx="347" cy="224" rx="38" ry="46" fill="white" opacity="0.92"/>
+  <rect width="512" height="512" rx="114" fill="#F0E7DA"/>
+
+  <!-- Cat silhouette: ears + head -->
+  <polygon points="105,232 178,50 257,212" fill="#C4623A"/>
+  <polygon points="255,212 334,50 407,232" fill="#C4623A"/>
+  <circle cx="256" cy="296" r="164" fill="#C4623A"/>
+
+  <!-- Inner ears (cream cut-out) -->
+  <polygon points="142,208 178,104 233,192" fill="#F0E7DA" opacity="0.55"/>
+  <polygon points="279,192 334,104 370,208" fill="#F0E7DA" opacity="0.55"/>
+
+  <!-- Eyes — white sclera -->
+  <ellipse cx="194" cy="268" rx="31" ry="29" fill="white"/>
+  <ellipse cx="318" cy="268" rx="31" ry="29" fill="white"/>
+
+  <!-- Pupils — vertical slit -->
+  <ellipse cx="194" cy="270" rx="12" ry="22" fill="#2D1F14"/>
+  <ellipse cx="318" cy="270" rx="12" ry="22" fill="#2D1F14"/>
+
+  <!-- Eye shine -->
+  <circle cx="202" cy="261" r="5" fill="white"/>
+  <circle cx="326" cy="261" r="5" fill="white"/>
+
+  <!-- Nose -->
+  <path d="M 256,313 L 241,297 L 271,297 Z" fill="#F0E7DA"/>
+
+  <!-- Mouth -->
+  <path d="M 256,315 Q 239,332 226,328" stroke="#F0E7DA" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M 256,315 Q 273,332 286,328" stroke="#F0E7DA" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+  <!-- Whiskers -->
+  <g stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.7">
+    <line x1="82" y1="308" x2="214" y2="316"/>
+    <line x1="82" y1="330" x2="214" y2="324"/>
+    <line x1="298" y1="316" x2="430" y2="308"/>
+    <line x1="298" y1="324" x2="430" y2="330"/>
+  </g>
 </svg>
