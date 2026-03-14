@@ -59,6 +59,14 @@ export function Medications() {
     setSelectedIndex(null)
   }
 
+  function handleSave(updated: MedicationDraft) {
+    if (selectedIndex === null) return
+    setMedications((prev) =>
+      prev.map((m, i) => (i === selectedIndex ? updated : m)),
+    )
+    setSelectedIndex(null)
+  }
+
   return (
     <div className="mt-[24px]">
       <div className="flex items-center justify-between">
@@ -74,6 +82,21 @@ export function Medications() {
           <Plus className="w-[16px] h-[16px] text-[#78716C]" />
         </button>
       </div>
+
+      {/* Empty state */}
+      {medications.length === 0 && (
+        <div className="mt-[14px] bg-[#FAF6F0] border border-dashed border-[#D4C8BA] rounded-[12px] px-[24px] py-[32px] flex flex-col items-center text-center gap-[8px]">
+          <div className="w-[48px] h-[48px] rounded-full bg-[#F0E8DA] flex items-center justify-center mb-[4px]">
+            <Pill className="w-[22px] h-[22px] text-[#C4623A]" />
+          </div>
+          <p className="font-dm-sans font-semibold text-[15px] text-[#1C1917]">
+            No medications yet
+          </p>
+          <p className="font-dm-sans font-normal text-[13px] text-[#78716C] max-w-[220px]">
+            Tap the + above to add a medication and start tracking doses.
+          </p>
+        </div>
+      )}
 
       {/* Medication cards */}
       {medications.length > 0 && (
@@ -140,6 +163,8 @@ export function Medications() {
         onClose={() => setSelectedIndex(null)}
         medication={selectedIndex !== null ? medications[selectedIndex] : null}
         onRemove={handleRemove}
+        onSave={handleSave}
+        conditions={loadConditions()}
       />
     </div>
   )
