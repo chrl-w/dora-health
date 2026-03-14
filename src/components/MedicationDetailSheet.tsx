@@ -100,6 +100,7 @@ export function MedicationDetailSheet({
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editDraft, setEditDraft] = useState<MedicationDraft>({ ...EMPTY_DRAFT })
+  const [editErrors, setEditErrors] = useState<{ dose?: string; frequency?: string }>({})
 
   useEffect(() => {
     if (open && medication) {
@@ -163,13 +164,22 @@ export function MedicationDetailSheet({
   }
 
   function handleSave() {
+    const newErrors: typeof editErrors = {}
+    if (!editDraft.dose.trim()) newErrors.dose = 'Dose is required'
+    if (editDraft.frequencyAmount === '' || (editDraft.frequencyAmount as number) < 1) newErrors.frequency = 'Frequency is required'
+    if (Object.keys(newErrors).length > 0) {
+      setEditErrors(newErrors)
+      return
+    }
     onSave(editDraft)
     setIsEditing(false)
+    setEditErrors({})
   }
 
   function handleCancelEdit() {
     setEditDraft(medication ? { ...medication } : { ...EMPTY_DRAFT })
     setIsEditing(false)
+    setEditErrors({})
   }
 
   return (
@@ -353,12 +363,14 @@ export function MedicationDetailSheet({
                       <input
                         type="text"
                         value={editDraft.dose}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setEditDraft((d) => ({ ...d, dose: e.target.value }))
-                        }
-                        className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+                          if (editErrors.dose) setEditErrors((e) => ({ ...e, dose: undefined }))
+                        }}
+                        className={`w-full bg-[#FAF6F0] border rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors ${editErrors.dose ? 'border-[#DC2626]' : 'border-[#E4D9CC]'}`}
                         placeholder="e.g. 2.5ml"
                       />
+                      {editErrors.dose && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{editErrors.dose}</p>}
                     </div>
 
                     {/* Condition */}
@@ -430,14 +442,15 @@ export function MedicationDetailSheet({
                           type="number"
                           min={1}
                           value={editDraft.frequencyAmount}
-                          onChange={(e) =>
+                          onChange={(e) => {
                             setEditDraft((d) => ({
                               ...d,
                               frequencyAmount:
-                                parseInt(e.target.value, 10) || 1,
+                                e.target.value === '' ? '' : parseInt(e.target.value, 10),
                             }))
-                          }
-                          className="w-[70px] bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors text-center"
+                            if (editErrors.frequency) setEditErrors((e) => ({ ...e, frequency: undefined }))
+                          }}
+                          className={`w-[70px] bg-[#FAF6F0] border rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors text-center ${editErrors.frequency ? 'border-[#DC2626]' : 'border-[#E4D9CC]'}`}
                         />
                         <div className="relative flex-1">
                           <select
@@ -475,6 +488,7 @@ export function MedicationDetailSheet({
                           </div>
                         </div>
                       </div>
+                      {editErrors.frequency && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{editErrors.frequency}</p>}
                     </div>
 
                     {/* Track doses */}

@@ -53,19 +53,29 @@ export function AddMedicationSheet({
   onAdd,
 }: AddMedicationSheetProps) {
   const [draft, setDraft] = useState<MedicationDraft>({ ...EMPTY_DRAFT })
+  const [errors, setErrors] = useState<{ name?: string; dose?: string; frequency?: string }>({})
 
   function handleClose() {
     setDraft({ ...EMPTY_DRAFT })
+    setErrors({})
     onClose()
   }
 
   function handleAdd() {
-    if (!draft.name.trim()) return
+    const newErrors: typeof errors = {}
+    if (!draft.name.trim()) newErrors.name = 'Name is required'
+    if (!draft.dose.trim()) newErrors.dose = 'Dose is required'
+    if (draft.frequencyAmount === '' || (draft.frequencyAmount as number) < 1) newErrors.frequency = 'Frequency is required'
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
     onAdd({
       ...draft,
       frequencyAmount: draft.frequencyAmount === '' ? 1 : draft.frequencyAmount,
     })
     setDraft({ ...EMPTY_DRAFT })
+    setErrors({})
   }
 
   const titleIcon = (
@@ -94,12 +104,14 @@ export function AddMedicationSheet({
           <input
             type="text"
             value={draft.name}
-            onChange={(e) =>
+            onChange={(e) => {
               setDraft((d) => ({ ...d, name: e.target.value }))
-            }
-            className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+              if (errors.name) setErrors((e) => ({ ...e, name: undefined }))
+            }}
+            className={`w-full bg-[#FAF6F0] border rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors ${errors.name ? 'border-[#DC2626]' : 'border-[#E4D9CC]'}`}
             placeholder="e.g. Solensia"
           />
+          {errors.name && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{errors.name}</p>}
         </div>
 
         {/* Dose */}
@@ -110,12 +122,14 @@ export function AddMedicationSheet({
           <input
             type="text"
             value={draft.dose}
-            onChange={(e) =>
+            onChange={(e) => {
               setDraft((d) => ({ ...d, dose: e.target.value }))
-            }
-            className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+              if (errors.dose) setErrors((e) => ({ ...e, dose: undefined }))
+            }}
+            className={`w-full bg-[#FAF6F0] border rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors ${errors.dose ? 'border-[#DC2626]' : 'border-[#E4D9CC]'}`}
             placeholder="e.g. 2.5ml"
           />
+          {errors.dose && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{errors.dose}</p>}
         </div>
 
         {/* Condition */}
@@ -184,20 +198,21 @@ export function AddMedicationSheet({
               type="number"
               min={1}
               value={draft.frequencyAmount}
-              onChange={(e) =>
+              onChange={(e) => {
                 setDraft((d) => ({
                   ...d,
                   frequencyAmount:
                     e.target.value === '' ? '' : parseInt(e.target.value, 10),
                 }))
-              }
+                if (errors.frequency) setErrors((e) => ({ ...e, frequency: undefined }))
+              }}
               onBlur={() =>
                 setDraft((d) => ({
                   ...d,
                   frequencyAmount: d.frequencyAmount === '' || isNaN(d.frequencyAmount as number) ? 1 : d.frequencyAmount,
                 }))
               }
-              className="w-[70px] bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors text-center"
+              className={`w-[70px] bg-[#FAF6F0] border rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors text-center ${errors.frequency ? 'border-[#DC2626]' : 'border-[#E4D9CC]'}`}
             />
             <div className="relative flex-1">
               <select
@@ -232,6 +247,7 @@ export function AddMedicationSheet({
               </div>
             </div>
           </div>
+          {errors.frequency && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{errors.frequency}</p>}
         </div>
 
         {/* Track doses */}
