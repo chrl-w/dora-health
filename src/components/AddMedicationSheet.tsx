@@ -16,7 +16,7 @@ export interface MedicationDraft {
   dose: string
   condition: string
   colour: string
-  frequencyAmount: number
+  frequencyAmount: number | ''
   frequencyUnit: string
   trackDoses: boolean
 }
@@ -61,12 +61,18 @@ export function AddMedicationSheet({
 
   function handleAdd() {
     if (!draft.name.trim()) return
-    onAdd(draft)
+    onAdd({
+      ...draft,
+      frequencyAmount: draft.frequencyAmount === '' ? 1 : draft.frequencyAmount,
+    })
     setDraft({ ...EMPTY_DRAFT })
   }
 
   const titleIcon = (
-    <div className="w-[28px] h-[28px] rounded-full bg-[#C4623A] flex items-center justify-center">
+    <div
+      className="w-[28px] h-[28px] rounded-full flex items-center justify-center transition-colors"
+      style={{ backgroundColor: draft.colour }}
+    >
       <Pill className="w-[14px] h-[14px] text-white" />
     </div>
   )
@@ -181,7 +187,14 @@ export function AddMedicationSheet({
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
-                  frequencyAmount: parseInt(e.target.value, 10) || 1,
+                  frequencyAmount:
+                    e.target.value === '' ? '' : parseInt(e.target.value, 10),
+                }))
+              }
+              onBlur={() =>
+                setDraft((d) => ({
+                  ...d,
+                  frequencyAmount: d.frequencyAmount === '' || isNaN(d.frequencyAmount as number) ? 1 : d.frequencyAmount,
                 }))
               }
               className="w-[70px] bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors text-center"
