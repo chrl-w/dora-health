@@ -1,6 +1,7 @@
 import { Header } from './components/Header'
 import { Medications } from './components/Medications'
 import { Journal } from './components/Journal'
+import { HealthMetrics } from './components/HealthMetrics'
 
 function App() {
   return (
@@ -8,6 +9,7 @@ function App() {
       <Header />
       <Medications />
       <Journal />
+      <HealthMetrics />
     </div>
   )
 }
