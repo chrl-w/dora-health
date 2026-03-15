@@ -32,7 +32,17 @@ function loadProfile(): PetProfile {
 }
 
 function saveProfile(profile: PetProfile) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile))
+  } catch {
+    /* localStorage quota exceeded — save without the image */
+    const { profileImage: _, ...rest } = profile
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rest))
+    } catch {
+      /* storage completely full — skip save */
+    }
+  }
 }
 
 /* ─── Cat SVG ─── */
@@ -104,11 +114,26 @@ export function Header() {
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setDraft((d) => ({ ...d, profileImage: reader.result as string }))
+
+    const img = new Image()
+    img.onload = () => {
+      const MAX = 256
+      let w = img.width
+      let h = img.height
+      if (w > MAX || h > MAX) {
+        const scale = MAX / Math.max(w, h)
+        w = Math.round(w * scale)
+        h = Math.round(h * scale)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      const compressed = canvas.toDataURL('image/jpeg', 0.8)
+      setDraft((d) => ({ ...d, profileImage: compressed }))
+      URL.revokeObjectURL(img.src)
     }
-    reader.readAsDataURL(file)
+    img.src = URL.createObjectURL(file)
     // Reset so the same file can be re-selected
     e.target.value = ''
   }
