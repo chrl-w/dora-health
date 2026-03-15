@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Share, Pencil, X, Plus } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Share, Pencil, X, Plus, Camera, Trash2 } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
 
 /* ─── Data ─── */
@@ -9,6 +9,7 @@ interface PetProfile {
   species: string
   age: number
   conditions: string[]
+  profileImage?: string | null
 }
 
 const DEFAULT_PROFILE: PetProfile = {
@@ -97,6 +98,25 @@ export function Header() {
     }))
   }
 
+  /* ── Profile image handlers ── */
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setDraft((d) => ({ ...d, profileImage: reader.result as string }))
+    }
+    reader.readAsDataURL(file)
+    // Reset so the same file can be re-selected
+    e.target.value = ''
+  }
+
+  function handleRemoveImage() {
+    setDraft((d) => ({ ...d, profileImage: null }))
+  }
+
   return (
     <>
       {/* ─── Profile card ─── */}
@@ -104,11 +124,19 @@ export function Header() {
         <div className="flex items-start gap-[14px]">
           {/* Avatar */}
           <div className="w-[72px] h-[72px] rounded-full border-2 border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center overflow-hidden shrink-0">
-            <img
-              src={CAT_SVG_URL}
-              alt={`${profile.name}'s avatar`}
-              className="w-[48px] h-[48px] object-contain"
-            />
+            {profile.profileImage ? (
+              <img
+                src={profile.profileImage}
+                alt={`${profile.name}'s avatar`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={CAT_SVG_URL}
+                alt={`${profile.name}'s avatar`}
+                className="w-[48px] h-[48px] object-contain"
+              />
+            )}
           </div>
 
           {/* Info */}
@@ -167,8 +195,52 @@ export function Header() {
         onClose={() => setIsEditing(false)}
         title="Edit profile"
       >
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageUpload}
+        />
+
         {/* Form panel */}
         <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px] flex flex-col gap-[12px]">
+          {/* Profile image */}
+          <div>
+            <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
+              Photo
+            </label>
+            {draft.profileImage ? (
+              <div className="flex items-center gap-[12px]">
+                <div className="w-[56px] h-[56px] rounded-full border-2 border-[#E4D9CC] overflow-hidden shrink-0">
+                  <img
+                    src={draft.profileImage}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="border border-[#E4D9CC] rounded-[8px] px-[12px] py-[9px] font-dm-sans font-semibold text-[13px] text-[#78716C] hover:bg-[#FAF6F0] active:scale-[0.99] transition-all flex items-center gap-[4px]"
+                >
+                  <Trash2 className="w-[14px] h-[14px]" />
+                  Remove photo
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="border border-[#C4623A] rounded-[8px] px-[12px] py-[9px] font-dm-sans font-semibold text-[13px] text-[#C4623A] hover:bg-[#FDF0EB] active:scale-[0.99] transition-all flex items-center gap-[4px]"
+              >
+                <Camera className="w-[14px] h-[14px]" />
+                Upload photo
+              </button>
+            )}
+          </div>
+
           {/* Name */}
           <div>
             <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
