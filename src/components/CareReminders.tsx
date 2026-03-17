@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Bell, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Bell, Plus, Trash2 } from 'lucide-react'
 import { computeMedicationReminders, computeCareReminders } from '../utils/reminderUtils'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
 import { AddCareReminderSheet } from './AddCareReminderSheet'
 import {
   getCareReminders,
   createReminder,
-  updateReminder,
   deleteReminder,
 } from '../services/careRemindersService'
 import type { Medication, StoredDoseRecord } from '../services/medicationService'
@@ -27,7 +26,6 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
   const [careReminders, setCareReminders] = useState<CareReminderData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [addSheetOpen, setAddSheetOpen] = useState(false)
-  const [editingReminder, setEditingReminder] = useState<CareReminderData | null>(null)
 
   // Load custom care reminders from Supabase when petId is set
   useEffect(() => {
@@ -72,19 +70,6 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
       console.error('Failed to create reminder:', err)
     }
     setAddSheetOpen(false)
-  }
-
-  async function handleEditReminder(data: Omit<CareReminderData, 'id'>) {
-    if (!editingReminder) return
-    try {
-      await updateReminder(editingReminder.id, data)
-      setCareReminders((prev) =>
-        prev.map((r) => (r.id === editingReminder.id ? { ...editingReminder, ...data } : r)),
-      )
-    } catch (err) {
-      console.error('Failed to update reminder:', err)
-    }
-    setEditingReminder(null)
   }
 
   async function handleDeleteReminder(id: string) {
@@ -194,14 +179,6 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
                       </button>
                       <button
                         type="button"
-                        onClick={() => setEditingReminder(careData)}
-                        className="p-[6px] text-[#78716C] hover:text-[#1C1917] transition-colors"
-                        aria-label="Edit reminder"
-                      >
-                        <Pencil className="w-[14px] h-[14px]" />
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => handleDeleteReminder(careData.id)}
                         className="p-[6px] text-[#78716C] hover:text-[#DC2626] transition-colors"
                         aria-label="Delete reminder"
@@ -252,13 +229,6 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
         onSave={handleAddReminder}
       />
 
-      {/* AddCareReminderSheet — edit */}
-      <AddCareReminderSheet
-        open={editingReminder !== null}
-        onClose={() => setEditingReminder(null)}
-        onSave={handleEditReminder}
-        existing={editingReminder}
-      />
     </>
   )
 }

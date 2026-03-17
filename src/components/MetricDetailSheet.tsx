@@ -13,6 +13,8 @@ interface MetricDetailSheetProps {
   config: MetricConfig
   onAddReading: (reading: MetricReading) => void
   onDeleteReading: (readingId: string) => void
+  target?: number
+  onSetTarget?: (value: number | null) => void
 }
 
 /* ─── Helpers ─── */
@@ -94,17 +96,21 @@ export function MetricDetailSheet({
   config,
   onAddReading,
   onDeleteReading,
+  target,
+  onSetTarget,
 }: MetricDetailSheetProps) {
   const { Icon, unit, trend } = config
   const [valueInput, setValueInput] = useState('')
   const [dateInput, setDateInput] = useState(todayDateString)
   const [showAll, setShowAll] = useState(false)
+  const [targetInput, setTargetInput] = useState('')
 
   useEffect(() => {
     if (open) {
       setValueInput('')
       setDateInput(todayDateString())
       setShowAll(false)
+      setTargetInput(target != null ? String(target) : '')
     }
   }, [open])
 
@@ -237,6 +243,55 @@ export function MetricDetailSheet({
                   >
                     Save reading
                   </button>
+                </div>
+              </div>
+
+              {/* Target */}
+              <div className="mb-[24px]">
+                <h3 className="font-dm-sans font-semibold text-[14px] text-[#1C1917] mb-[10px]">
+                  Target <span className="font-normal text-[#A8A29E]">(optional)</span>
+                </h3>
+                <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px]">
+                  <div className="flex items-center gap-[8px]">
+                    <div className="relative flex-1">
+                      <input
+                        type="number"
+                        value={targetInput}
+                        onChange={(e) => setTargetInput(e.target.value)}
+                        placeholder="e.g. 4.5"
+                        className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] pl-[14px] pr-[52px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+                      />
+                      <span className="absolute right-[14px] top-1/2 -translate-y-1/2 font-dm-sans text-[13px] text-[#A8A29E] pointer-events-none">
+                        {unit}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = parseFloat(targetInput)
+                        onSetTarget?.(isNaN(val) ? null : val)
+                      }}
+                      disabled={targetInput === (target != null ? String(target) : '')}
+                      className="bg-[#C4623A] rounded-[8px] px-[14px] py-[10px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    >
+                      Set
+                    </button>
+                    {target != null && (
+                      <button
+                        type="button"
+                        onClick={() => { onSetTarget?.(null); setTargetInput('') }}
+                        className="w-[38px] h-[38px] rounded-[8px] flex items-center justify-center hover:bg-[#E4D9CC] transition-colors shrink-0"
+                        aria-label="Clear target"
+                      >
+                        <X className="w-[14px] h-[14px] text-[#78716C]" />
+                      </button>
+                    )}
+                  </div>
+                  {target != null && (
+                    <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[8px]">
+                      Current target: <span className="font-medium text-[#1C1917]">{target} {unit}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 

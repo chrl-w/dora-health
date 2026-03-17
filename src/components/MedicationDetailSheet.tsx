@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Pill, Clock, Check, Calendar, Droplets, Pencil, Trash2, ChevronDown, Clock3 } from 'lucide-react'
 import type { MedicationDraft } from './AddMedicationSheet'
@@ -9,7 +9,6 @@ import {
   getDoseHistory,
   recordDose,
   deleteDose,
-  type StoredDoseRecord,
 } from '../services/medicationService'
 
 /* ─── Types ─── */
@@ -30,33 +29,6 @@ interface DoseRecord {
   date: Date
   id: string
   doseSnapshot?: string
-}
-
-const DOSE_HISTORY_KEY = 'dora_dose_history'
-
-function loadDoseHistory(medName: string): DoseRecord[] {
-  try {
-    const raw = localStorage.getItem(DOSE_HISTORY_KEY)
-    if (raw) {
-      const all: Record<string, StoredDoseRecord[]> = JSON.parse(raw)
-      const records = all[medName] ?? []
-      return records.map((r) => ({ id: r.id, date: new Date(r.date), doseSnapshot: r.doseSnapshot }))
-    }
-  } catch {
-    /* fall back */
-  }
-  return []
-}
-
-function saveDoseHistory(medName: string, history: DoseRecord[]) {
-  try {
-    const raw = localStorage.getItem(DOSE_HISTORY_KEY)
-    const all: Record<string, StoredDoseRecord[]> = raw ? JSON.parse(raw) : {}
-    all[medName] = history.map((r) => ({ id: r.id, date: r.date.toISOString(), doseSnapshot: r.doseSnapshot }))
-    localStorage.setItem(DOSE_HISTORY_KEY, JSON.stringify(all))
-  } catch {
-    /* ignore */
-  }
 }
 
 /* ─── Helpers ─── */
@@ -132,8 +104,6 @@ export function MedicationDetailSheet({
   const dateInputRef = useRef<HTMLInputElement>(null)
   const timeInputRef = useRef<HTMLInputElement>(null)
 
-  const isSupabasePath = !!(petId && medicationId && !medicationId.startsWith('local-'))
-
   useEffect(() => {
     if (open && medication) {
       setEditDraft({ ...medication })
@@ -153,27 +123,13 @@ export function MedicationDetailSheet({
     }
   }, [open])
 
-  // Load dose history when medication or path changes
+  // Load dose history when medication changes
   useEffect(() => {
-    if (!medication) return
-    if (isSupabasePath) {
-      getDoseHistory(medicationId!).then((records) => {
-        setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date), doseSnapshot: r.doseSnapshot })))
-      }).catch(console.error)
-    } else {
-      setDoseHistory(loadDoseHistory(medication.name))
-    }
-  }, [medication, medicationId, petId, isSupabasePath])
-
-  // Persist dose history to localStorage (localStorage path only)
-  const persistHistory = useCallback(
-    (history: DoseRecord[]) => {
-      if (medication) {
-        saveDoseHistory(medication.name, history)
-      }
-    },
-    [medication]
-  )
+    if (!medication || !medicationId) return
+    getDoseHistory(medicationId).then((records) => {
+      setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date), doseSnapshot: r.doseSnapshot })))
+    }).catch(console.error)
+  }, [medication, medicationId])
 
   if (!medication) return null
 
@@ -187,46 +143,28 @@ export function MedicationDetailSheet({
     } else if (!isToday(selectedDate)) {
       doseDate.setHours(12, 0, 0, 0)
     }
-    const doseSnapshot = medication.dose?.trim() || undefined
+    const doseSnapshot = medication!.dose?.trim() || undefined
 
-    if (isSupabasePath) {
-      setIsLoading(true)
-      try {
-        const record = await recordDose(petId!, medicationId!, doseDate, doseSnapshot)
-        setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date), doseSnapshot: record.doseSnapshot }, ...prev])
-        const now = new Date()
-        setSelectedDate(now)
-        setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
-      } finally {
-        setIsLoading(false)
-      }
-    } else {
-      setDoseHistory((prev) => {
-        const updated = [{ date: doseDate, id: `${doseDate.getTime()}`, doseSnapshot }, ...prev]
-        persistHistory(updated)
-        return updated
-      })
+    if (!petId || !medicationId) return
+    setIsLoading(true)
+    try {
+      const record = await recordDose(petId, medicationId, doseDate, doseSnapshot)
+      setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date), doseSnapshot: record.doseSnapshot }, ...prev])
       const now = new Date()
       setSelectedDate(now)
       setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+    } finally {
+      setIsLoading(false)
     }
   }
 
   async function handleDeleteDose(id: string) {
-    if (isSupabasePath) {
-      setIsLoading(true)
-      try {
-        await deleteDose(id)
-        setDoseHistory((prev) => prev.filter((r) => r.id !== id))
-      } finally {
-        setIsLoading(false)
-      }
-    } else {
-      setDoseHistory((prev) => {
-        const updated = prev.filter((r) => r.id !== id)
-        persistHistory(updated)
-        return updated
-      })
+    setIsLoading(true)
+    try {
+      await deleteDose(id)
+      setDoseHistory((prev) => prev.filter((r) => r.id !== id))
+    } finally {
+      setIsLoading(false)
     }
   }
 
