@@ -77,16 +77,37 @@ export function EntryDetailSheet({
     setIsEditing(false)
   }
 
+  function compressPhoto(file: File): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 800
+        let w = img.width
+        let h = img.height
+        if (w > MAX || h > MAX) {
+          const scale = MAX / Math.max(w, h)
+          w = Math.round(w * scale)
+          h = Math.round(h * scale)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+        const compressed = canvas.toDataURL('image/jpeg', 0.8)
+        URL.revokeObjectURL(img.src)
+        resolve(compressed)
+      }
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
     files.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        const result = ev.target?.result as string
-        if (result) setEditPhotos((prev) => [...prev, result])
-      }
-      reader.readAsDataURL(file)
+      compressPhoto(file).then((compressed) => {
+        setEditPhotos((prev) => [...prev, compressed])
+      })
     })
     e.target.value = ''
   }
