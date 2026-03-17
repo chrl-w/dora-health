@@ -173,7 +173,7 @@ export function AddCareReminderSheet({ open, onClose, onSave }: AddCareReminderS
               value={draft.dueDate}
               min={todayISO()}
               onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
             />
           </div>
         </div>
