@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Share, Pencil, X, Plus, Camera, Trash2 } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
+import { getPet, upsertPet } from '../services/petService'
 
 /* ─── Data ─── */
 
@@ -50,20 +51,52 @@ function saveProfile(profile: PetProfile) {
 const CAT_SVG_URL =
   'https://cdn.magicpatterns.com/patterns/figma-svgs/Kh5g0Xyt1TVzu73mQOZcPL/46-27.svg'
 
+/* ─── Props ─── */
+
+interface HeaderProps {
+  petId: string | null
+  onProfileChange?: (name: string, conditions: string[]) => void
+}
+
 /* ─── Component ─── */
 
-export function Header() {
+export function Header({ petId, onProfileChange }: HeaderProps) {
   const [profile, setProfile] = useState<PetProfile>(loadProfile)
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   /* Draft state for the edit form */
   const [draft, setDraft] = useState<PetProfile>(profile)
   const [newCondition, setNewCondition] = useState('')
 
-  /* Sync profile → localStorage whenever it changes */
+  /* Load from Supabase when petId is set */
   useEffect(() => {
+    if (!petId) return
+    setIsLoading(true)
+    getPet(petId)
+      .then((data) => {
+        if (data) {
+          const loaded: PetProfile = {
+            name: data.name,
+            species: data.species ?? 'Cat',
+            age: data.age ?? 0,
+            conditions: data.conditions,
+            profileImage: data.profileImage ?? null,
+          }
+          setProfile(loaded)
+          onProfileChange?.(loaded.name, loaded.conditions)
+        }
+      })
+      .catch(() => { /* keep defaults on error */ })
+      .finally(() => setIsLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [petId])
+
+  /* Persist to localStorage only on the localStorage path */
+  useEffect(() => {
+    if (petId !== null) return
     saveProfile(profile)
-  }, [profile])
+  }, [profile, petId])
 
   /* Open sheet → reset draft to current profile */
   function openEdit() {
@@ -73,11 +106,25 @@ export function Header() {
   }
 
   async function handleShare() {
+    if (petId) {
+      const url = `${window.location.origin}?pet=${petId}`
+      if (navigator.share) {
+        try {
+          await navigator.share({ url, title: `${profile.name}'s health profile` })
+        } catch {
+          /* user cancelled */
+        }
+      } else {
+        await navigator.clipboard.writeText(url)
+      }
+      return
+    }
+
+    /* localStorage path — existing text share */
     const conditionsText = profile.conditions.length > 0
       ? profile.conditions.join(', ')
       : 'None'
     const text = `Pet name: ${profile.name}\nSpecies: ${profile.species}\nAge: ${profile.age}\nConditions: ${conditionsText}`
-
     if (navigator.share) {
       try {
         await navigator.share({ text })
@@ -89,8 +136,26 @@ export function Header() {
     }
   }
 
-  function handleSave() {
-    setProfile(draft)
+  async function handleSave() {
+    if (petId) {
+      setIsLoading(true)
+      try {
+        await upsertPet(petId, {
+          name: draft.name,
+          species: draft.species,
+          age: draft.age,
+          conditions: draft.conditions,
+          profileImage: draft.profileImage,
+        })
+        setProfile(draft)
+        onProfileChange?.(draft.name, draft.conditions)
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      setProfile(draft)
+      onProfileChange?.(draft.name, draft.conditions)
+    }
     setIsEditing(false)
   }
 
@@ -168,7 +233,7 @@ export function Header() {
           <div className="flex-1 min-w-0 pt-[2px]">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="font-bricolage font-bold text-[28px] text-[#1C1917] leading-tight">
+                <h1 className={`font-bricolage font-bold text-[28px] text-[#1C1917] leading-tight ${isLoading ? 'opacity-50' : ''}`}>
                   {profile.name}
                 </h1>
                 <p className="font-dm-sans font-normal text-[15px] text-[#78716C] mt-[2px]">
@@ -191,6 +256,7 @@ export function Header() {
                   className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors"
                   aria-label="Edit profile"
                   onClick={openEdit}
+                  disabled={isLoading}
                 >
                   <Pencil className="w-[14px] h-[14px] text-[#78716C]" />
                 </button>
@@ -379,9 +445,10 @@ export function Header() {
         <button
           type="button"
           onClick={handleSave}
-          className="w-full mt-[16px] bg-[#C4623A] rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all"
+          disabled={isLoading}
+          className="w-full mt-[16px] bg-[#C4623A] rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Save changes
+          {isLoading ? 'Saving…' : 'Save changes'}
         </button>
       </BottomSheet>
     </>

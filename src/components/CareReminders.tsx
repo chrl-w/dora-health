@@ -8,7 +8,6 @@ import type { MedicationDraft } from './AddMedicationSheet'
 
 const MEDICATIONS_STORAGE_KEY = 'dora_medications'
 const DOSE_HISTORY_KEY = 'dora_dose_history'
-const PROFILE_STORAGE_KEY = 'dora_profile'
 
 interface StoredDoseRecord {
   date: string
@@ -31,20 +30,13 @@ function loadAllDoseHistory(): Record<string, StoredDoseRecord[]> {
   return {}
 }
 
-function loadConditions(): string[] {
-  try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY)
-    if (raw) {
-      const profile = JSON.parse(raw)
-      return profile.conditions ?? []
-    }
-  } catch { /* fall back */ }
-  return []
-}
-
 /* ─── Component ─── */
 
-export function CareReminders() {
+interface CareRemindersProps {
+  conditions: string[]
+}
+
+export function CareReminders({ conditions }: CareRemindersProps) {
   const [medications, setMedications] = useState<MedicationDraft[]>(loadMedications)
   const [doseHistory, setDoseHistory] = useState<Record<string, StoredDoseRecord[]>>(loadAllDoseHistory)
   const [selectedMed, setSelectedMed] = useState<MedicationDraft | null>(null)
@@ -160,7 +152,7 @@ export function CareReminders() {
         medication={selectedMed}
         onRemove={() => setSelectedMed(null)}
         onSave={() => setSelectedMed(null)}
-        conditions={loadConditions()}
+        conditions={conditions}
       />
     </>
   )

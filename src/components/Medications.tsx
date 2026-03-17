@@ -10,7 +10,6 @@ function pluralUnit(amount: number | string, unit: string): string {
   return n === 1 ? unit.replace(/s$/, '') : unit
 }
 
-const STORAGE_KEY = 'dora_profile'
 const MEDICATIONS_STORAGE_KEY = 'dora_medications'
 const DOSE_HISTORY_KEY = 'dora_dose_history'
 
@@ -57,19 +56,6 @@ function calcNextDue(med: MedicationDraft, history: StoredDoseRecord[]): { label
   }
 }
 
-function loadConditions(): string[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const profile = JSON.parse(raw)
-      return profile.conditions ?? []
-    }
-  } catch {
-    /* fall back */
-  }
-  return ['Hip dysplasia', 'Hyperthyroidism']
-}
-
 function loadMedications(): MedicationDraft[] {
   try {
     const raw = localStorage.getItem(MEDICATIONS_STORAGE_KEY)
@@ -80,7 +66,11 @@ function loadMedications(): MedicationDraft[] {
   return []
 }
 
-export function Medications() {
+interface MedicationsProps {
+  conditions: string[]
+}
+
+export function Medications({ conditions }: MedicationsProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [medications, setMedications] = useState<MedicationDraft[]>(loadMedications)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
@@ -219,7 +209,7 @@ export function Medications() {
       <AddMedicationSheet
         open={isAdding}
         onClose={() => setIsAdding(false)}
-        conditions={loadConditions()}
+        conditions={conditions}
         onAdd={handleAdd}
       />
 
@@ -229,7 +219,7 @@ export function Medications() {
         medication={selectedIndex !== null ? medications[selectedIndex] : null}
         onRemove={handleRemove}
         onSave={handleSave}
-        conditions={loadConditions()}
+        conditions={conditions}
       />
     </div>
   )
