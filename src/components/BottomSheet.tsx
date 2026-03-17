@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X } from 'lucide-react'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
 
@@ -19,7 +19,8 @@ export function BottomSheet({
   titleIcon,
   children,
 }: BottomSheetProps) {
-  // Prevent background page from scrolling when sheet is open
+  const dragControls = useDragControls()
+
   useEffect(() => {
     if (open) {
       lockBodyScroll()
@@ -48,9 +49,20 @@ export function BottomSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0 }}
+            dragElastic={{ top: 0, bottom: 0.4 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 120 || info.velocity.y > 400) onClose()
+            }}
           >
-            {/* Handle */}
-            <div className="flex justify-center pt-3 pb-2">
+            {/* Handle — drag starts here */}
+            <div
+              className="flex justify-center pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing"
+              onPointerDown={(e) => dragControls.start(e)}
+            >
               <div className="w-[36px] h-[4px] rounded-full bg-[#D4C8BA]" />
             </div>
 

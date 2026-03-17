@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Pill, Clock } from 'lucide-react'
 import { AddMedicationSheet, type MedicationDraft } from './AddMedicationSheet'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
@@ -15,17 +15,6 @@ import {
 function pluralUnit(amount: number | string, unit: string): string {
   const n = typeof amount === 'number' ? amount : parseFloat(String(amount))
   return n === 1 ? unit.replace(/s$/, '') : unit
-}
-
-const MEDICATIONS_STORAGE_KEY = 'dora_medications'
-const DOSE_HISTORY_KEY = 'dora_dose_history'
-
-function loadAllDoseHistoryRaw(): Record<string, StoredDoseRecord[]> {
-  try {
-    const raw = localStorage.getItem(DOSE_HISTORY_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch { /* fall back */ }
-  return {}
 }
 
 function calcNextDue(med: MedicationDraft, history: StoredDoseRecord[]): { label: string; overdue: boolean } {
@@ -72,13 +61,6 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
   const [isLoading, setIsLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
-  // Persist to localStorage when in localStorage mode
-  useEffect(() => {
-    if (petId === null) {
-      localStorage.setItem(MEDICATIONS_STORAGE_KEY, JSON.stringify(medications))
-    }
-  }, [medications, petId])
-
   async function handleAdd(med: MedicationDraft) {
     if (petId) {
       setIsLoading(true)
@@ -88,9 +70,6 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
       } finally {
         setIsLoading(false)
       }
-    } else {
-      const newMed: Medication = { ...med, id: `local-${Date.now()}` }
-      onMedicationsChange([...medications, newMed])
     }
     setIsAdding(false)
   }
@@ -106,9 +85,6 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
       } finally {
         setIsLoading(false)
       }
-    } else {
-      onMedicationsChange(medications.filter((_, i) => i !== selectedIndex))
-      onDoseHistoryChange?.()
     }
     setSelectedIndex(null)
   }
@@ -126,20 +102,6 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
       } finally {
         setIsLoading(false)
       }
-    } else {
-      // Migrate dose history key in localStorage if the medication was renamed
-      if (med.name !== updated.name) {
-        const allHistory = loadAllDoseHistoryRaw()
-        if (allHistory[med.name]) {
-          allHistory[updated.name] = allHistory[med.name]
-          delete allHistory[med.name]
-          localStorage.setItem(DOSE_HISTORY_KEY, JSON.stringify(allHistory))
-        }
-      }
-      onMedicationsChange(
-        medications.map((m, i) => (i === selectedIndex ? { ...updated, id: med.id } : m))
-      )
-      onDoseHistoryChange?.()
     }
     setSelectedIndex(null)
   }

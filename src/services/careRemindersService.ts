@@ -5,23 +5,23 @@ import type { CareReminderData } from '../utils/reminderUtils'
 
 interface CareReminderRow {
   id: string
+  type: string
   title: string
   notes: string | null
-  frequency_amount: number
-  frequency_unit: string
-  last_completed: string | null
+  due_date: string
   accent_colour: string
+  surface_colour: string
 }
 
 function rowToData(row: CareReminderRow): CareReminderData {
   return {
     id: row.id,
+    type: row.type as CareReminderData['type'],
     title: row.title,
     notes: row.notes ?? undefined,
-    frequencyAmount: row.frequency_amount,
-    frequencyUnit: row.frequency_unit as CareReminderData['frequencyUnit'],
-    lastCompleted: row.last_completed ?? null,
+    dueDate: row.due_date,
     accentColour: row.accent_colour,
+    surfaceColour: row.surface_colour,
   }
 }
 
@@ -30,9 +30,9 @@ function rowToData(row: CareReminderRow): CareReminderData {
 export async function getCareReminders(petId: string): Promise<CareReminderData[]> {
   const { data, error } = await supabase
     .from('care_reminders')
-    .select('id, title, notes, frequency_amount, frequency_unit, last_completed, accent_colour')
+    .select('id, type, title, notes, due_date, accent_colour, surface_colour')
     .eq('pet_id', petId)
-    .order('created_at', { ascending: true })
+    .order('due_date', { ascending: true })
 
   if (error) throw error
 
@@ -47,14 +47,14 @@ export async function createReminder(
     .from('care_reminders')
     .insert({
       pet_id: petId,
+      type: data.type,
       title: data.title,
       notes: data.notes ?? null,
-      frequency_amount: data.frequencyAmount,
-      frequency_unit: data.frequencyUnit,
-      last_completed: data.lastCompleted ?? null,
+      due_date: data.dueDate,
       accent_colour: data.accentColour,
+      surface_colour: data.surfaceColour,
     })
-    .select('id, title, notes, frequency_amount, frequency_unit, last_completed, accent_colour')
+    .select('id, type, title, notes, due_date, accent_colour, surface_colour')
     .single()
 
   if (error) throw error
@@ -69,11 +69,12 @@ export async function updateReminder(
   const { error } = await supabase
     .from('care_reminders')
     .update({
+      type: data.type,
       title: data.title,
       notes: data.notes ?? null,
-      frequency_amount: data.frequencyAmount,
-      frequency_unit: data.frequencyUnit,
+      due_date: data.dueDate,
       accent_colour: data.accentColour,
+      surface_colour: data.surfaceColour,
     })
     .eq('id', id)
 
@@ -89,11 +90,7 @@ export async function deleteReminder(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function completeReminder(id: string, completedAt: Date): Promise<void> {
-  const { error } = await supabase
-    .from('care_reminders')
-    .update({ last_completed: completedAt.toISOString() })
-    .eq('id', id)
-
-  if (error) throw error
+/** Complete = delete for one-time reminders */
+export async function completeReminder(id: string): Promise<void> {
+  return deleteReminder(id)
 }

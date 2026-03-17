@@ -1,103 +1,133 @@
 import { useState, useEffect } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, Calendar, Droplets, Package, Stethoscope } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
-import { COLOUR_OPTIONS, FREQUENCY_UNITS } from './AddMedicationSheet'
-import type { CareReminderData } from '../utils/reminderUtils'
+import { REMINDER_TYPE_CONFIG, type CareReminderData } from '../utils/reminderUtils'
+import { formatDateDisplay, todayISO } from './AddEntrySheet'
 
 /* ─── Types ─── */
+
+type ReminderType = CareReminderData['type']
 
 interface AddCareReminderSheetProps {
   open: boolean
   onClose: () => void
   onSave: (data: Omit<CareReminderData, 'id'>) => void
-  existing?: CareReminderData | null
 }
 
 interface Draft {
+  type: ReminderType | null
   title: string
   notes: string
-  frequencyAmount: number | ''
-  frequencyUnit: CareReminderData['frequencyUnit']
-  accentColour: string
+  dueDate: string
 }
 
-const EMPTY_DRAFT: Draft = {
-  title: '',
-  notes: '',
-  frequencyAmount: 1,
-  frequencyUnit: 'weeks',
-  accentColour: COLOUR_OPTIONS[0],
+/* ─── Constants ─── */
+
+const TYPES: ReminderType[] = ['blood_test', 'order', 'vet_visit', 'custom']
+
+const TYPE_LABELS: Record<ReminderType, string> = {
+  blood_test: 'Blood test',
+  order: 'Order',
+  vet_visit: 'Vet visit',
+  custom: 'Custom',
+}
+
+const TYPE_ICONS = {
+  blood_test: Droplets,
+  order: Package,
+  vet_visit: Stethoscope,
+  custom: Bell,
+} as const
+
+function defaultDueDate(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 7)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function emptyDraft(): Draft {
+  return { type: null, title: '', notes: '', dueDate: defaultDueDate() }
 }
 
 /* ─── Component ─── */
 
-export function AddCareReminderSheet({ open, onClose, onSave, existing }: AddCareReminderSheetProps) {
-  const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT })
-  const [errors, setErrors] = useState<{ title?: string; frequency?: string }>({})
+export function AddCareReminderSheet({ open, onClose, onSave }: AddCareReminderSheetProps) {
+  const [draft, setDraft] = useState<Draft>(emptyDraft())
 
-  // Populate draft when editing an existing reminder
   useEffect(() => {
-    if (open) {
-      if (existing) {
-        setDraft({
-          title: existing.title,
-          notes: existing.notes ?? '',
-          frequencyAmount: existing.frequencyAmount,
-          frequencyUnit: existing.frequencyUnit,
-          accentColour: existing.accentColour,
-        })
-      } else {
-        setDraft({ ...EMPTY_DRAFT })
-      }
-      setErrors({})
-    }
-  }, [open, existing])
+    if (open) setDraft(emptyDraft())
+  }, [open])
+
+  function handleTypeSelect(newType: ReminderType) {
+    const prevConfig = draft.type ? REMINDER_TYPE_CONFIG[draft.type] : null
+    const newConfig = REMINDER_TYPE_CONFIG[newType]
+    const shouldAutoFill = !draft.title.trim() || (prevConfig !== null && draft.title === prevConfig.defaultTitle)
+    setDraft((d) => ({
+      ...d,
+      type: newType,
+      title: shouldAutoFill ? newConfig.defaultTitle : d.title,
+    }))
+  }
 
   function handleClose() {
-    setDraft({ ...EMPTY_DRAFT })
-    setErrors({})
+    setDraft(emptyDraft())
     onClose()
   }
 
-  function handleSave() {
-    const newErrors: typeof errors = {}
-    if (!draft.title.trim()) newErrors.title = 'Title is required'
-    if (draft.frequencyAmount === '' || (draft.frequencyAmount as number) < 1) {
-      newErrors.frequency = 'Frequency is required'
-    }
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      return
-    }
+  const canSave = draft.type !== null && draft.title.trim() !== '' && draft.dueDate !== ''
 
+  function handleSave() {
+    if (!canSave || !draft.type) return
+    const config = REMINDER_TYPE_CONFIG[draft.type]
     onSave({
+      type: draft.type,
       title: draft.title.trim(),
       notes: draft.notes.trim() || undefined,
-      frequencyAmount: draft.frequencyAmount === '' ? 1 : (draft.frequencyAmount as number),
-      frequencyUnit: draft.frequencyUnit,
-      accentColour: draft.accentColour,
-      lastCompleted: existing?.lastCompleted ?? null,
+      dueDate: draft.dueDate,
+      accentColour: config.accentColour,
+      surfaceColour: config.surfaceColour,
     })
-    setDraft({ ...EMPTY_DRAFT })
-    setErrors({})
+    setDraft(emptyDraft())
   }
 
   const titleIcon = (
-    <div
-      className="w-[28px] h-[28px] rounded-full flex items-center justify-center transition-colors"
-      style={{ backgroundColor: draft.accentColour }}
-    >
-      <Bell className="w-[14px] h-[14px] text-white" />
+    <div className="w-[28px] h-[28px] rounded-full bg-[#F0E8DA] flex items-center justify-center">
+      <Bell className="w-[14px] h-[14px] text-[#78716C]" />
     </div>
   )
 
   return (
-    <BottomSheet
-      open={open}
-      onClose={handleClose}
-      title={existing ? 'Edit reminder' : 'Add reminder'}
-      titleIcon={titleIcon}
-    >
+    <BottomSheet open={open} onClose={handleClose} title="Add reminder" titleIcon={titleIcon}>
+      {/* Type selector chips */}
+      <div className="mb-[16px]">
+        <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[8px] block">
+          Type
+        </label>
+        <div className="flex flex-wrap gap-[8px]">
+          {TYPES.map((type) => {
+            const config = REMINDER_TYPE_CONFIG[type]
+            const Icon = TYPE_ICONS[type]
+            const selected = draft.type === type
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleTypeSelect(type)}
+                className="flex items-center gap-[6px] rounded-full px-[12px] py-[7px] font-dm-sans font-medium text-[13px] transition-colors"
+                style={
+                  selected
+                    ? { backgroundColor: config.accentColour, color: 'white' }
+                    : { backgroundColor: '#F0E8DA', color: '#78716C' }
+                }
+              >
+                <Icon className="w-[14px] h-[14px]" />
+                <span>{TYPE_LABELS[type]}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Form panel */}
       <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px] flex flex-col gap-[12px]">
         {/* Title */}
@@ -108,14 +138,10 @@ export function AddCareReminderSheet({ open, onClose, onSave, existing }: AddCar
           <input
             type="text"
             value={draft.title}
-            onChange={(e) => {
-              setDraft((d) => ({ ...d, title: e.target.value }))
-              if (errors.title) setErrors((e) => ({ ...e, title: undefined }))
-            }}
-            className={`w-full bg-[#FAF6F0] border rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors ${errors.title ? 'border-[#DC2626]' : 'border-[#E4D9CC]'}`}
-            placeholder="e.g. Flea treatment"
+            onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+            className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+            placeholder="e.g. Thyroid recheck"
           />
-          {errors.title && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{errors.title}</p>}
         </div>
 
         {/* Notes */}
@@ -128,88 +154,28 @@ export function AddCareReminderSheet({ open, onClose, onSave, existing }: AddCar
             value={draft.notes}
             onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
             className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
-            placeholder="e.g. Apply to back of neck"
+            placeholder="e.g. Fasting required"
           />
         </div>
 
-        {/* Colour */}
+        {/* Due date */}
         <div>
           <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
-            Colour
+            Due date
           </label>
-          <div className="flex gap-[10px]">
-            {COLOUR_OPTIONS.map((colour) => (
-              <button
-                key={colour}
-                type="button"
-                onClick={() => setDraft((d) => ({ ...d, accentColour: colour }))}
-                className={`w-[28px] h-[28px] rounded-full transition-shadow ${
-                  draft.accentColour === colour ? 'ring-2 ring-offset-2 ring-[#C4623A]' : ''
-                }`}
-                style={{ backgroundColor: colour }}
-                aria-label={`Select colour ${colour}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Frequency */}
-        <div>
-          <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
-            Frequency
-          </label>
-          <div className="flex items-center gap-[8px]">
-            <span className="font-dm-sans text-[15px] text-[#1C1917] shrink-0">Every</span>
-            <input
-              type="number"
-              min={1}
-              value={draft.frequencyAmount}
-              onChange={(e) => {
-                setDraft((d) => ({
-                  ...d,
-                  frequencyAmount: e.target.value === '' ? '' : parseInt(e.target.value, 10),
-                }))
-                if (errors.frequency) setErrors((e) => ({ ...e, frequency: undefined }))
-              }}
-              onBlur={() =>
-                setDraft((d) => ({
-                  ...d,
-                  frequencyAmount:
-                    d.frequencyAmount === '' || isNaN(d.frequencyAmount as number) ? 1 : d.frequencyAmount,
-                }))
-              }
-              className={`w-[70px] bg-[#FAF6F0] border rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors text-center ${errors.frequency ? 'border-[#DC2626]' : 'border-[#E4D9CC]'}`}
-            />
-            <div className="relative flex-1">
-              <select
-                value={draft.frequencyUnit}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, frequencyUnit: e.target.value as CareReminderData['frequencyUnit'] }))
-                }
-                className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors appearance-none cursor-pointer"
-              >
-                {FREQUENCY_UNITS.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit.charAt(0).toUpperCase() + unit.slice(1)}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute right-[12px] top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#78716C]">
-                  <path
-                    d="M3 4.5L6 7.5L9 4.5"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
+          <div className="relative">
+            <div className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] flex items-center justify-between">
+              <span>{formatDateDisplay(draft.dueDate)}</span>
+              <Calendar className="w-[16px] h-[16px] text-[#78716C] shrink-0" />
             </div>
+            <input
+              type="date"
+              value={draft.dueDate}
+              min={todayISO()}
+              onChange={(e) => setDraft((d) => ({ ...d, dueDate: e.target.value }))}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+            />
           </div>
-          {errors.frequency && (
-            <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{errors.frequency}</p>
-          )}
         </div>
       </div>
 
@@ -225,9 +191,14 @@ export function AddCareReminderSheet({ open, onClose, onSave, existing }: AddCar
         <button
           type="button"
           onClick={handleSave}
-          className="flex-1 bg-[#C4623A] rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all"
+          disabled={!canSave}
+          className={`flex-1 rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-white transition-all ${
+            canSave
+              ? 'bg-[#C4623A] hover:bg-[#A8502E] active:scale-[0.98]'
+              : 'bg-[#D4C8BA] cursor-not-allowed'
+          }`}
         >
-          {existing ? 'Save changes' : 'Add reminder'}
+          Add reminder
         </button>
       </div>
     </BottomSheet>

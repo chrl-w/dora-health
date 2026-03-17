@@ -15,15 +15,55 @@ export interface Reminder {
   medicationName?: string
 }
 
-/** Stored in localStorage under 'dora_care_reminders' — used from Iteration 2 onwards */
 export interface CareReminderData {
   id: string
+  type: 'blood_test' | 'order' | 'vet_visit' | 'custom'
   title: string
   notes?: string
-  frequencyAmount: number
-  frequencyUnit: 'hours' | 'days' | 'weeks' | 'months'
-  lastCompleted?: string | null
+  dueDate: string       // ISO date string YYYY-MM-DD
+  accentColour: string  // derived from type at read time, stored for display consistency
+  surfaceColour: string // derived from type at read time
+}
+
+/* ─── Reminder type config ─── */
+
+export interface ReminderTypeConfig {
+  icon: string          // lucide icon name
   accentColour: string
+  surfaceColour: string
+  actionLabel: string
+  defaultTitle: string
+}
+
+export const REMINDER_TYPE_CONFIG: Record<CareReminderData['type'], ReminderTypeConfig> = {
+  blood_test: {
+    icon: 'Droplets',
+    accentColour: '#6B8FA8',
+    surfaceColour: '#E8F0F5',
+    actionLabel: 'Book test',
+    defaultTitle: 'Blood test',
+  },
+  order: {
+    icon: 'Package',
+    accentColour: '#8B7355',
+    surfaceColour: '#F5EDE0',
+    actionLabel: 'Order',
+    defaultTitle: 'Reorder medication',
+  },
+  vet_visit: {
+    icon: 'Stethoscope',
+    accentColour: '#7D9E7E',
+    surfaceColour: '#EDF5ED',
+    actionLabel: 'Book visit',
+    defaultTitle: 'Vet appointment',
+  },
+  custom: {
+    icon: 'Bell',
+    accentColour: '#A07060',
+    surfaceColour: '#F5EAE6',
+    actionLabel: 'Done',
+    defaultTitle: 'Reminder',
+  },
 }
 
 /* ─── Helpers ─── */
@@ -36,6 +76,17 @@ const MS_MAP: Record<string, number> = {
 }
 
 const SEVEN_DAYS_MS = 7 * 86_400_000
+
+function buildDueLabel(overdue: boolean, isToday: boolean, isTomorrow: boolean, dueDay: Date, today: Date): string {
+  if (overdue) {
+    const daysOverdue = Math.round((today.getTime() - dueDay.getTime()) / 86_400_000)
+    return daysOverdue === 1 ? 'overdue by 1 day' : `overdue by ${daysOverdue} days`
+  }
+  if (isToday) return 'due today'
+  if (isTomorrow) return 'due tomorrow'
+  const daysUntil = Math.round((dueDay.getTime() - today.getTime()) / 86_400_000)
+  return `due in ${daysUntil} days`
+}
 
 /**
  * Derives medication reminders from stored medications + dose history.
@@ -80,22 +131,11 @@ export function computeMedicationReminders(
     const isToday = dueDay.getTime() === today.getTime()
     const isTomorrow = dueDay.getTime() === tomorrow.getTime()
 
-    let subtitle: string
-    if (overdue) {
-      subtitle = 'Overdue'
-    } else if (isToday) {
-      subtitle = 'Due today'
-    } else if (isTomorrow) {
-      subtitle = 'Due tomorrow'
-    } else {
-      subtitle = `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-    }
-
     reminders.push({
       id: `med-${med.name}`,
       type: 'medication',
       title: med.name,
-      subtitle,
+      subtitle: buildDueLabel(overdue, isToday, isTomorrow, dueDay, today),
       dueDate,
       overdue,
       accentColour: med.colour,
@@ -126,44 +166,23 @@ export function computeCareReminders(careReminders: CareReminderData[]): Reminde
   const reminders: Reminder[] = []
 
   for (const reminder of careReminders) {
-    const amount =
-      typeof reminder.frequencyAmount === 'number' ? reminder.frequencyAmount : 1
-    const ms = amount * (MS_MAP[reminder.frequencyUnit] ?? 86_400_000)
+    // Parse YYYY-MM-DD as local date to avoid UTC offset issues
+    const [year, month, day] = reminder.dueDate.split('-').map(Number)
+    const dueDay = new Date(year, month - 1, day)
 
-    let dueDate: Date
-
-    if (!reminder.lastCompleted) {
-      dueDate = today
-    } else {
-      const lastDone = new Date(reminder.lastCompleted)
-      dueDate = new Date(lastDone.getTime() + ms)
-    }
-
-    const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
-
+    // Skip if due more than 7 days from today
     if (dueDay.getTime() > cutoff.getTime()) continue
 
     const overdue = dueDay.getTime() < today.getTime()
     const isToday = dueDay.getTime() === today.getTime()
     const isTomorrow = dueDay.getTime() === tomorrow.getTime()
 
-    let subtitle: string
-    if (overdue) {
-      subtitle = 'Overdue'
-    } else if (isToday) {
-      subtitle = 'Due today'
-    } else if (isTomorrow) {
-      subtitle = 'Due tomorrow'
-    } else {
-      subtitle = `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-    }
-
     reminders.push({
       id: `care-${reminder.id}`,
       type: 'care',
       title: reminder.title,
-      subtitle,
-      dueDate,
+      subtitle: buildDueLabel(overdue, isToday, isTomorrow, dueDay, today),
+      dueDate: dueDay,
       overdue,
       accentColour: reminder.accentColour,
     })
