@@ -5,6 +5,12 @@ import type { MedicationDraft } from './AddMedicationSheet'
 import { COLOUR_OPTIONS, FREQUENCY_UNITS, EMPTY_DRAFT, formatMedDate } from './AddMedicationSheet'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
 import { lightTint } from '../utils/colourUtils'
+import {
+  getDoseHistory,
+  recordDose,
+  deleteDose,
+  type StoredDoseRecord,
+} from '../services/medicationService'
 
 /* ─── Types ─── */
 
@@ -13,6 +19,8 @@ interface MedicationDetailSheetProps {
   onClose: () => void
   medication: MedicationDraft | null
   medicationId?: string | null
+  petId?: string | null
+  onDoseHistoryChange?: () => void
   onRemove: () => void
   onSave: (updated: MedicationDraft) => void
   conditions: string[]
@@ -20,11 +28,6 @@ interface MedicationDetailSheetProps {
 
 interface DoseRecord {
   date: Date
-  id: string
-}
-
-interface StoredDoseRecord {
-  date: string
   id: string
 }
 
@@ -107,6 +110,9 @@ export function MedicationDetailSheet({
   open,
   onClose,
   medication,
+  medicationId,
+  petId,
+  onDoseHistoryChange,
   onRemove,
   onSave,
   conditions,
@@ -114,10 +120,13 @@ export function MedicationDetailSheet({
   const [doseHistory, setDoseHistory] = useState<DoseRecord[]>([])
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [editDraft, setEditDraft] = useState<MedicationDraft>({ ...EMPTY_DRAFT })
   const [editErrors, setEditErrors] = useState<{ dose?: string; frequency?: string }>({})
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const dateInputRef = useRef<HTMLInputElement>(null)
+
+  const isSupabasePath = !!(petId && medicationId && !medicationId.startsWith('local-'))
 
   useEffect(() => {
     if (open && medication) {
@@ -136,14 +145,19 @@ export function MedicationDetailSheet({
     }
   }, [open])
 
-  // Load dose history from localStorage when medication changes
+  // Load dose history when medication or path changes
   useEffect(() => {
-    if (medication) {
+    if (!medication) return
+    if (isSupabasePath) {
+      getDoseHistory(medicationId!).then((records) => {
+        setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date) })))
+      }).catch(console.error)
+    } else {
       setDoseHistory(loadDoseHistory(medication.name))
     }
-  }, [medication])
+  }, [medication, medicationId, petId, isSupabasePath])
 
-  // Persist dose history when it changes
+  // Persist dose history to localStorage (localStorage path only)
   const persistHistory = useCallback(
     (history: DoseRecord[]) => {
       if (medication) {
@@ -155,25 +169,47 @@ export function MedicationDetailSheet({
 
   if (!medication) return null
 
-  function handleRecordDose() {
+  async function handleRecordDose() {
     const doseDate = new Date(selectedDate)
     if (!isToday(selectedDate)) {
       doseDate.setHours(12, 0, 0, 0)
     }
-    setDoseHistory((prev) => {
-      const updated = [{ date: doseDate, id: `${doseDate.getTime()}` }, ...prev]
-      persistHistory(updated)
-      return updated
-    })
-    setSelectedDate(new Date())
+
+    if (isSupabasePath) {
+      setIsLoading(true)
+      try {
+        const record = await recordDose(petId!, medicationId!, doseDate)
+        setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date) }, ...prev])
+        setSelectedDate(new Date())
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      setDoseHistory((prev) => {
+        const updated = [{ date: doseDate, id: `${doseDate.getTime()}` }, ...prev]
+        persistHistory(updated)
+        return updated
+      })
+      setSelectedDate(new Date())
+    }
   }
 
-  function handleDeleteDose(id: string) {
-    setDoseHistory((prev) => {
-      const updated = prev.filter((r) => r.id !== id)
-      persistHistory(updated)
-      return updated
-    })
+  async function handleDeleteDose(id: string) {
+    if (isSupabasePath) {
+      setIsLoading(true)
+      try {
+        await deleteDose(id)
+        setDoseHistory((prev) => prev.filter((r) => r.id !== id))
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      setDoseHistory((prev) => {
+        const updated = prev.filter((r) => r.id !== id)
+        persistHistory(updated)
+        return updated
+      })
+    }
   }
 
   function handleRemove() {
@@ -188,6 +224,7 @@ export function MedicationDetailSheet({
   function handleClose() {
     setShowRemoveConfirm(false)
     setIsEditing(false)
+    onDoseHistoryChange?.()
     onClose()
   }
 
@@ -309,7 +346,8 @@ export function MedicationDetailSheet({
                       <button
                         type="button"
                         onClick={handleRecordDose}
-                        className="flex items-center gap-[6px] bg-[#C4623A] rounded-[8px] px-[14px] py-[8px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all"
+                        disabled={isLoading}
+                        className="flex items-center gap-[6px] bg-[#C4623A] rounded-[8px] px-[14px] py-[8px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all disabled:opacity-50"
                       >
                         <Check className="w-[14px] h-[14px]" />
                         Mark as given
@@ -358,7 +396,8 @@ export function MedicationDetailSheet({
                           <button
                             type="button"
                             onClick={() => handleDeleteDose(record.id)}
-                            className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-[#FEE2E2] transition-colors shrink-0"
+                            disabled={isLoading}
+                            className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-[#FEE2E2] transition-colors shrink-0 disabled:opacity-50"
                             aria-label="Delete dose record"
                           >
                             <Trash2 className="w-[13px] h-[13px] text-[#A8A29E] hover:text-[#DC2626]" />

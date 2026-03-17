@@ -1,45 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Bell, Plus } from 'lucide-react'
 import { computeMedicationReminders } from '../utils/reminderUtils'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
-import type { MedicationDraft } from './AddMedicationSheet'
-
-/* ─── Storage helpers ─── */
-
-const DOSE_HISTORY_KEY = 'dora_dose_history'
-
-interface StoredDoseRecord {
-  date: string
-  id: string
-}
-
-function loadAllDoseHistory(): Record<string, StoredDoseRecord[]> {
-  try {
-    const raw = localStorage.getItem(DOSE_HISTORY_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch { /* fall back */ }
-  return {}
-}
+import type { Medication, StoredDoseRecord } from '../services/medicationService'
 
 /* ─── Component ─── */
 
 interface CareRemindersProps {
   conditions: string[]
-  medications: MedicationDraft[]
+  medications: Medication[]
+  doseHistory: Record<string, StoredDoseRecord[]>
+  petId: string | null
+  onDoseHistoryChange?: () => void
 }
 
-export function CareReminders({ conditions, medications }: CareRemindersProps) {
-  const [doseHistory, setDoseHistory] = useState<Record<string, StoredDoseRecord[]>>(loadAllDoseHistory)
-  const [selectedMed, setSelectedMed] = useState<MedicationDraft | null>(null)
-
-  // Re-sync dose history from localStorage on focus
-  useEffect(() => {
-    function sync() {
-      setDoseHistory(loadAllDoseHistory())
-    }
-    window.addEventListener('focus', sync)
-    return () => window.removeEventListener('focus', sync)
-  }, [])
+export function CareReminders({ conditions, medications, doseHistory, petId, onDoseHistoryChange }: CareRemindersProps) {
+  const [selectedMed, setSelectedMed] = useState<Medication | null>(null)
 
   const reminders = computeMedicationReminders(medications, doseHistory)
 
@@ -52,7 +28,6 @@ export function CareReminders({ conditions, medications }: CareRemindersProps) {
 
   function handleDetailClose() {
     setSelectedMed(null)
-    setDoseHistory(loadAllDoseHistory())
   }
 
   return (
@@ -140,6 +115,9 @@ export function CareReminders({ conditions, medications }: CareRemindersProps) {
         open={selectedMed !== null}
         onClose={handleDetailClose}
         medication={selectedMed}
+        medicationId={selectedMed?.id ?? null}
+        petId={petId}
+        onDoseHistoryChange={onDoseHistoryChange}
         onRemove={() => setSelectedMed(null)}
         onSave={() => setSelectedMed(null)}
         conditions={conditions}
