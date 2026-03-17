@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, BookOpen } from 'lucide-react'
+import { Plus, BookOpen, Camera } from 'lucide-react'
 import { AddEntrySheet, type JournalEntry, SYMPTOMS } from './AddEntrySheet'
 import { EntryDetailSheet } from './EntryDetailSheet'
 import { getJournalEntries, createEntry, updateEntry, deleteEntry } from '../services/journalService'
@@ -126,8 +126,11 @@ export function Journal({ petName, petId }: JournalProps) {
         <>
           <div className="flex flex-col gap-[10px] mt-[14px]">
             {visibleEntries.map((entry) => {
-              const firstSymptomEmoji =
-                entry.symptoms.length > 0 ? symptomEmojiMap[entry.symptoms[0]] : null
+              const hasSymptoms = entry.symptoms.length > 0
+              const hasPhotos = entry.photos.length > 0
+              const firstSymptomEmoji = hasSymptoms ? symptomEmojiMap[entry.symptoms[0]] : null
+              const visibleSymptoms = entry.symptoms.slice(0, 3)
+              const overflowCount = entry.symptoms.length - 3
 
               return (
                 <button
@@ -145,16 +148,24 @@ export function Journal({ petName, petId }: JournalProps) {
                         {entry.note}
                       </p>
                     </div>
-                    {firstSymptomEmoji && (
+                    {hasPhotos && hasSymptoms ? (
+                      <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0 font-dm-sans text-[12px] text-[#78716C]">
+                        📷 {entry.photos.length}
+                      </div>
+                    ) : hasPhotos ? (
+                      <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0">
+                        <Camera className="w-[14px] h-[14px] text-[#78716C]" />
+                      </div>
+                    ) : firstSymptomEmoji ? (
                       <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0 text-[16px]">
                         {firstSymptomEmoji}
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
-                  {entry.symptoms.length > 0 && (
+                  {hasSymptoms && (
                     <div className="flex flex-wrap gap-[6px] mt-[10px]">
-                      {entry.symptoms.map((s) => (
+                      {visibleSymptoms.map((s) => (
                         <span
                           key={s}
                           className="bg-[#FDF0EB] rounded-full px-[10px] py-[3px] font-dm-sans font-normal text-[12px] text-[#C4623A]"
@@ -162,6 +173,11 @@ export function Journal({ petName, petId }: JournalProps) {
                           {s}
                         </span>
                       ))}
+                      {overflowCount > 0 && (
+                        <span className="bg-[#E4D9CC] rounded-full px-[10px] py-[3px] font-dm-sans text-[12px] text-[#78716C]">
+                          +{overflowCount}
+                        </span>
+                      )}
                     </div>
                   )}
                 </button>
