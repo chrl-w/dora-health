@@ -6,7 +6,6 @@ import { EntryDetailSheet } from './EntryDetailSheet'
 /* ─── Storage ─── */
 
 const JOURNAL_STORAGE_KEY = 'dora_journal'
-const PROFILE_STORAGE_KEY = 'dora_profile'
 
 function loadEntries(): JournalEntry[] {
   try {
@@ -16,16 +15,6 @@ function loadEntries(): JournalEntry[] {
     /* fall back */
   }
   return []
-}
-
-function loadPetName(): string {
-  try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY)
-    if (raw) return JSON.parse(raw).name ?? 'your pet'
-  } catch {
-    /* fall back */
-  }
-  return 'Dora'
 }
 
 /* ─── Helpers ─── */
@@ -50,12 +39,15 @@ function formatRelativeDate(isoDate: string): string {
 
 /* ─── Component ─── */
 
-export function Journal() {
+interface JournalProps {
+  petName: string
+}
+
+export function Journal({ petName }: JournalProps) {
   const [entries, setEntries] = useState<JournalEntry[]>(loadEntries)
   const [isAdding, setIsAdding] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [showAll, setShowAll] = useState(false)
-  const petName = loadPetName()
 
   useEffect(() => {
     try {
