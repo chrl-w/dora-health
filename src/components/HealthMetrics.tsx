@@ -124,6 +124,16 @@ export function HealthMetrics() {
     )
   }
 
+  function handleDeleteReading(metricId: string, readingId: string) {
+    setMetrics((prev) =>
+      prev.map((m) =>
+        m.id === metricId
+          ? { ...m, readings: m.readings.filter((r) => r.id !== readingId) }
+          : m,
+      ),
+    )
+  }
+
   const selectedMetric = metrics.find((m) => m.id === selectedId) ?? null
   const selectedConfig = selectedMetric
     ? METRIC_CONFIGS.find((c) => c.id === selectedMetric.id)!
@@ -204,6 +214,7 @@ export function HealthMetrics() {
           metric={selectedMetric}
           config={selectedConfig}
           onAddReading={(reading) => handleAddReading(selectedMetric.id, reading)}
+          onDeleteReading={(readingId) => handleDeleteReading(selectedMetric.id, readingId)}
         />
       )}
     </div>

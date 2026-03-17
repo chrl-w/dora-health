@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, BookOpen, Pencil, Calendar } from 'lucide-react'
+import { X, BookOpen, Pencil, Calendar, Camera } from 'lucide-react'
 import type { JournalEntry } from './AddEntrySheet'
 import { SYMPTOMS, formatDateDisplay, todayISO } from './AddEntrySheet'
 
@@ -29,7 +29,9 @@ export function EntryDetailSheet({
   const [editDate, setEditDate] = useState('')
   const [editNote, setEditNote] = useState('')
   const [editSymptoms, setEditSymptoms] = useState<string[]>([])
+  const [editPhotos, setEditPhotos] = useState<string[]>([])
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   // Reset state whenever the sheet opens with a new entry
   useEffect(() => {
@@ -37,6 +39,7 @@ export function EntryDetailSheet({
       setEditDate(entry.date)
       setEditNote(entry.note)
       setEditSymptoms([...entry.symptoms])
+      setEditPhotos([...(entry.photos ?? [])])
       setIsEditing(false)
       setShowDeleteConfirm(false)
     }
@@ -64,13 +67,32 @@ export function EntryDetailSheet({
     setEditDate(entry!.date)
     setEditNote(entry!.note)
     setEditSymptoms([...entry!.symptoms])
+    setEditPhotos([...(entry!.photos ?? [])])
     setIsEditing(false)
   }
 
   function handleSave() {
     if (!editNote.trim()) return
-    onEdit({ ...entry!, date: editDate, note: editNote.trim(), symptoms: editSymptoms })
+    onEdit({ ...entry!, date: editDate, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
     setIsEditing(false)
+  }
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string
+        if (result) setEditPhotos((prev) => [...prev, result])
+      }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
+
+  function removePhoto(index: number) {
+    setEditPhotos((prev) => prev.filter((_, i) => i !== index))
   }
 
   function handleDelete() {
@@ -225,6 +247,48 @@ export function EntryDetailSheet({
                           ))}
                         </div>
                       </div>
+
+                      {/* Photos */}
+                      <div>
+                        <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[10px] block">
+                          Photos <span className="font-normal">(optional)</span>
+                        </label>
+                        <div className="flex flex-wrap gap-[8px]">
+                          {editPhotos.map((src, i) => (
+                            <div key={i} className="relative w-[72px] h-[72px]">
+                              <img
+                                src={src}
+                                alt={`Photo ${i + 1}`}
+                                className="w-full h-full object-cover rounded-[10px] border border-[#E4D9CC]"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(i)}
+                                className="absolute -top-[6px] -right-[6px] w-[18px] h-[18px] rounded-full bg-[#1C1917] flex items-center justify-center"
+                                aria-label="Remove photo"
+                              >
+                                <X className="w-[10px] h-[10px] text-white" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => photoInputRef.current?.click()}
+                            className="w-[72px] h-[72px] rounded-[10px] border border-dashed border-[#D4C8BA] bg-[#FAF6F0] flex flex-col items-center justify-center gap-[4px] hover:bg-[#F0E8DA] transition-colors"
+                          >
+                            <Camera className="w-[18px] h-[18px] text-[#78716C]" />
+                            <span className="font-dm-sans font-normal text-[10px] text-[#78716C]">Add</span>
+                          </button>
+                        </div>
+                        <input
+                          ref={photoInputRef}
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                      </div>
                     </motion.div>
                   ) : (
                     <motion.div
@@ -274,6 +338,26 @@ export function EntryDetailSheet({
                               </span>
                             ))}
                           </div>
+                        )}
+
+                        {/* Photos */}
+                        {(entry.photos ?? []).length > 0 && (
+                          <>
+                            <div className="h-px bg-[#E4D9CC] my-[14px]" />
+                            <p className="font-dm-sans font-medium text-[12px] text-[#78716C] mb-[8px]">
+                              Photos
+                            </p>
+                            <div className="flex flex-wrap gap-[8px]">
+                              {(entry.photos ?? []).map((src, i) => (
+                                <img
+                                  key={i}
+                                  src={src}
+                                  alt={`Photo ${i + 1}`}
+                                  className="w-[72px] h-[72px] object-cover rounded-[10px] border border-[#E4D9CC]"
+                                />
+                              ))}
+                            </div>
+                          </>
                         )}
                       </div>
                     </motion.div>

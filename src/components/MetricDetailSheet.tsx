@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
+import { X, ChevronDown, ChevronUp, Calendar, Trash2 } from 'lucide-react'
 import type { HealthMetric, MetricConfig, MetricReading, MetricTrend } from './HealthMetrics'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
 
@@ -12,6 +12,7 @@ interface MetricDetailSheetProps {
   metric: HealthMetric
   config: MetricConfig
   onAddReading: (reading: MetricReading) => void
+  onDeleteReading: (readingId: string) => void
 }
 
 /* ─── Helpers ─── */
@@ -92,6 +93,7 @@ export function MetricDetailSheet({
   metric,
   config,
   onAddReading,
+  onDeleteReading,
 }: MetricDetailSheetProps) {
   const { Icon, unit, trend } = config
   const [valueInput, setValueInput] = useState('')
@@ -261,9 +263,9 @@ export function MetricDetailSheet({
                         return (
                           <div
                             key={reading.id}
-                            className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] flex items-center justify-between gap-[8px]"
+                            className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] flex items-center gap-[8px]"
                           >
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <p className="font-dm-sans font-semibold text-[14px] text-[#1C1917]">
                                 {reading.value} {unit}
                               </p>
@@ -283,6 +285,14 @@ export function MetricDetailSheet({
                                 First reading
                               </span>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => onDeleteReading(reading.id)}
+                              className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-[#FEE2E2] transition-colors shrink-0"
+                              aria-label="Delete reading"
+                            >
+                              <Trash2 className="w-[13px] h-[13px] text-[#A8A29E] hover:text-[#DC2626]" />
+                            </button>
                           </div>
                         )
                       })}

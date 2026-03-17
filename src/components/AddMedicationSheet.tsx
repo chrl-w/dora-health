@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pill } from 'lucide-react'
+import { Pill, Calendar } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
 
 /* ─── Types ─── */
@@ -19,6 +19,19 @@ export interface MedicationDraft {
   frequencyAmount: number | ''
   frequencyUnit: string
   trackDoses: boolean
+  startDate: string
+}
+
+export function todayDateISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export function formatMedDate(iso: string): string {
+  if (!iso) return ''
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 /* ─── Constants ─── */
@@ -42,6 +55,7 @@ export const EMPTY_DRAFT: MedicationDraft = {
   frequencyAmount: 1,
   frequencyUnit: 'weeks',
   trackDoses: true,
+  startDate: '',
 }
 
 /* ─── Component ─── */
@@ -248,6 +262,27 @@ export function AddMedicationSheet({
             </div>
           </div>
           {errors.frequency && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{errors.frequency}</p>}
+        </div>
+
+        {/* Start date */}
+        <div>
+          <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
+            Start date <span className="font-normal">(optional)</span>
+          </label>
+          <div className="relative">
+            <div className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] flex items-center justify-between">
+              <span className={draft.startDate ? 'text-[#1C1917]' : 'text-[#A8A29E]'}>
+                {draft.startDate ? formatMedDate(draft.startDate) : 'Select date'}
+              </span>
+              <Calendar className="w-[16px] h-[16px] text-[#78716C] shrink-0" />
+            </div>
+            <input
+              type="date"
+              value={draft.startDate}
+              onChange={(e) => setDraft((d) => ({ ...d, startDate: e.target.value }))}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+            />
+          </div>
         </div>
 
         {/* Track doses */}

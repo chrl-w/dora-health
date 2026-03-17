@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { BookOpen, Calendar } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { BookOpen, Calendar, Camera, X } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
 
 /* ─── Types ─── */
@@ -9,6 +9,7 @@ export interface JournalEntry {
   date: string // YYYY-MM-DD
   note: string
   symptoms: string[]
+  photos: string[] // base64 data URLs
 }
 
 /* ─── Constants ─── */
@@ -58,26 +59,49 @@ export function AddEntrySheet({
   const [date, setDate] = useState(todayISO)
   const [note, setNote] = useState('')
   const [symptoms, setSymptoms] = useState<string[]>([])
+  const [photos, setPhotos] = useState<string[]>([])
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   function handleClose() {
     setDate(todayISO())
     setNote('')
     setSymptoms([])
+    setPhotos([])
     onClose()
   }
 
   function handleAdd() {
     if (!note.trim()) return
-    onAdd({ id: `${Date.now()}`, date, note: note.trim(), symptoms })
+    onAdd({ id: `${Date.now()}`, date, note: note.trim(), symptoms, photos })
     setDate(todayISO())
     setNote('')
     setSymptoms([])
+    setPhotos([])
   }
 
   function toggleSymptom(label: string) {
     setSymptoms((prev) =>
       prev.includes(label) ? prev.filter((s) => s !== label) : [...prev, label],
     )
+  }
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string
+        if (result) setPhotos((prev) => [...prev, result])
+      }
+      reader.readAsDataURL(file)
+    })
+    // reset so the same file can be re-selected
+    e.target.value = ''
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== index))
   }
 
   const titleIcon = (
@@ -143,6 +167,48 @@ export function AddEntrySheet({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Photos */}
+      <div className="mb-[16px]">
+        <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[10px] block">
+          Photos <span className="font-normal">(optional)</span>
+        </label>
+        <div className="flex flex-wrap gap-[8px]">
+          {photos.map((src, i) => (
+            <div key={i} className="relative w-[72px] h-[72px]">
+              <img
+                src={src}
+                alt={`Photo ${i + 1}`}
+                className="w-full h-full object-cover rounded-[10px] border border-[#E4D9CC]"
+              />
+              <button
+                type="button"
+                onClick={() => removePhoto(i)}
+                className="absolute -top-[6px] -right-[6px] w-[18px] h-[18px] rounded-full bg-[#1C1917] flex items-center justify-center"
+                aria-label="Remove photo"
+              >
+                <X className="w-[10px] h-[10px] text-white" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            className="w-[72px] h-[72px] rounded-[10px] border border-dashed border-[#D4C8BA] bg-[#FAF6F0] flex flex-col items-center justify-center gap-[4px] hover:bg-[#F0E8DA] transition-colors"
+          >
+            <Camera className="w-[18px] h-[18px] text-[#78716C]" />
+            <span className="font-dm-sans font-normal text-[10px] text-[#78716C]">Add</span>
+          </button>
+        </div>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handlePhotoChange}
+          className="hidden"
+        />
       </div>
 
       {/* Actions */}
