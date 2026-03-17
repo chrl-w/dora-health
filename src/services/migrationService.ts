@@ -2,15 +2,27 @@ import { upsertPet } from './petService'
 import { createMedication, recordDose } from './medicationService'
 import { createEntry } from './journalService'
 import { addReading } from './metricsService'
+import { createReminder } from './careRemindersService'
 import type { MedicationDraft } from '../components/AddMedicationSheet'
 import type { JournalEntry } from '../components/AddEntrySheet'
 import type { HealthMetric } from '../components/HealthMetrics'
+import type { CareReminderData } from '../utils/reminderUtils'
 
 const PROFILE_KEY = 'dora_profile'
 const MEDICATIONS_KEY = 'dora_medications'
 const DOSE_HISTORY_KEY = 'dora_dose_history'
 const JOURNAL_KEY = 'dora_journal'
 const METRICS_KEY = 'dora_metrics'
+const CARE_REMINDERS_KEY = 'dora_care_reminders'
+
+const LEGACY_KEYS = [
+  PROFILE_KEY,
+  MEDICATIONS_KEY,
+  DOSE_HISTORY_KEY,
+  JOURNAL_KEY,
+  METRICS_KEY,
+  CARE_REMINDERS_KEY,
+]
 
 export async function migrateProfile(petId: string): Promise<void> {
   const raw = localStorage.getItem(PROFILE_KEY)
@@ -96,10 +108,61 @@ export async function migrateMetrics(petId: string): Promise<void> {
   }
 }
 
+export async function migrateCareReminders(petId: string): Promise<void> {
+  const raw = localStorage.getItem(CARE_REMINDERS_KEY)
+  if (!raw) return
+
+  const reminders: CareReminderData[] = JSON.parse(raw)
+  for (const reminder of reminders) {
+    try {
+      const { id: _id, ...data } = reminder
+      await createReminder(petId, data)
+    } catch (err) {
+      console.error(`Failed to migrate care reminder "${reminder.title}":`, err)
+    }
+  }
+}
+
 export async function runFullMigration(petId: string): Promise<void> {
-  await migrateProfile(petId)
-  const nameToIdMap = await migrateMedications(petId)
-  await migrateDoseHistory(petId, nameToIdMap)
-  await migrateJournal(petId)
-  await migrateMetrics(petId)
+  try {
+    await migrateProfile(petId)
+  } catch (err) {
+    console.error('migrateProfile failed:', err)
+  }
+
+  let nameToIdMap: Record<string, string> = {}
+  try {
+    nameToIdMap = await migrateMedications(petId)
+  } catch (err) {
+    console.error('migrateMedications failed:', err)
+  }
+
+  try {
+    await migrateDoseHistory(petId, nameToIdMap)
+  } catch (err) {
+    console.error('migrateDoseHistory failed:', err)
+  }
+
+  try {
+    await migrateJournal(petId)
+  } catch (err) {
+    console.error('migrateJournal failed:', err)
+  }
+
+  try {
+    await migrateMetrics(petId)
+  } catch (err) {
+    console.error('migrateMetrics failed:', err)
+  }
+
+  try {
+    await migrateCareReminders(petId)
+  } catch (err) {
+    console.error('migrateCareReminders failed:', err)
+  }
+
+  // Remove legacy keys — keep dora_pet_id and dora_migration_done
+  for (const key of LEGACY_KEYS) {
+    localStorage.removeItem(key)
+  }
 }
