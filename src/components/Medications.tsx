@@ -3,6 +3,12 @@ import { Plus, Pill, Clock } from 'lucide-react'
 import { AddMedicationSheet, type MedicationDraft } from './AddMedicationSheet'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
 import { lightTint } from '../utils/colourUtils'
+import {
+  createMedication,
+  updateMedication,
+  deleteMedication,
+  type Medication,
+} from '../services/medicationService'
 
 /** Singularise a frequency unit when the amount is 1 (e.g. "days" → "day"). */
 function pluralUnit(amount: number | string, unit: string): string {
@@ -56,60 +62,89 @@ function calcNextDue(med: MedicationDraft, history: StoredDoseRecord[]): { label
   }
 }
 
-function loadMedications(): MedicationDraft[] {
-  try {
-    const raw = localStorage.getItem(MEDICATIONS_STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    /* fall back */
-  }
-  return []
-}
-
 interface MedicationsProps {
   conditions: string[]
+  petId: string | null
+  medications: Medication[]
+  onMedicationsChange: (meds: Medication[]) => void
 }
 
-export function Medications({ conditions }: MedicationsProps) {
+export function Medications({ conditions, petId, medications, onMedicationsChange }: MedicationsProps) {
   const [isAdding, setIsAdding] = useState(false)
-  const [medications, setMedications] = useState<MedicationDraft[]>(loadMedications)
+  const [isLoading, setIsLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [doseHistory, setDoseHistory] = useState<Record<string, StoredDoseRecord[]>>(loadAllDoseHistory)
 
-  // Persist medications to localStorage whenever they change
+  // Persist to localStorage when in localStorage mode
   useEffect(() => {
-    localStorage.setItem(MEDICATIONS_STORAGE_KEY, JSON.stringify(medications))
-  }, [medications])
+    if (petId === null) {
+      localStorage.setItem(MEDICATIONS_STORAGE_KEY, JSON.stringify(medications))
+    }
+  }, [medications, petId])
 
-  function handleAdd(med: MedicationDraft) {
-    setMedications((prev) => [...prev, med])
+  async function handleAdd(med: MedicationDraft) {
+    if (petId) {
+      setIsLoading(true)
+      try {
+        const created = await createMedication(petId, med)
+        onMedicationsChange([...medications, created])
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      const newMed: Medication = { ...med, id: `local-${Date.now()}` }
+      onMedicationsChange([...medications, newMed])
+    }
     setIsAdding(false)
   }
 
-  function handleRemove() {
+  async function handleRemove() {
     if (selectedIndex === null) return
-    setMedications((prev) => prev.filter((_, i) => i !== selectedIndex))
+    const med = medications[selectedIndex]
+    if (petId) {
+      setIsLoading(true)
+      try {
+        await deleteMedication(med.id)
+        onMedicationsChange(medications.filter((_, i) => i !== selectedIndex))
+      } finally {
+        setIsLoading(false)
+      }
+    } else {
+      onMedicationsChange(medications.filter((_, i) => i !== selectedIndex))
+      setDoseHistory(loadAllDoseHistory())
+    }
     setSelectedIndex(null)
-    setDoseHistory(loadAllDoseHistory())
   }
 
-  function handleSave(updated: MedicationDraft) {
+  async function handleSave(updated: MedicationDraft) {
     if (selectedIndex === null) return
-    const oldMed = medications[selectedIndex]
-    // Migrate dose history to new key if the medication was renamed
-    if (oldMed && oldMed.name !== updated.name) {
-      const allHistory = loadAllDoseHistory()
-      if (allHistory[oldMed.name]) {
-        allHistory[updated.name] = allHistory[oldMed.name]
-        delete allHistory[oldMed.name]
-        localStorage.setItem(DOSE_HISTORY_KEY, JSON.stringify(allHistory))
+    const med = medications[selectedIndex]
+    if (petId) {
+      setIsLoading(true)
+      try {
+        await updateMedication(med.id, updated)
+        onMedicationsChange(
+          medications.map((m, i) => (i === selectedIndex ? { ...updated, id: med.id } : m))
+        )
+      } finally {
+        setIsLoading(false)
       }
+    } else {
+      // Migrate dose history to new key if the medication was renamed
+      if (med.name !== updated.name) {
+        const allHistory = loadAllDoseHistory()
+        if (allHistory[med.name]) {
+          allHistory[updated.name] = allHistory[med.name]
+          delete allHistory[med.name]
+          localStorage.setItem(DOSE_HISTORY_KEY, JSON.stringify(allHistory))
+        }
+      }
+      onMedicationsChange(
+        medications.map((m, i) => (i === selectedIndex ? { ...updated, id: med.id } : m))
+      )
+      setDoseHistory(loadAllDoseHistory())
     }
-    setMedications((prev) =>
-      prev.map((m, i) => (i === selectedIndex ? updated : m)),
-    )
     setSelectedIndex(null)
-    setDoseHistory(loadAllDoseHistory())
   }
 
   function handleDetailClose() {
@@ -126,7 +161,8 @@ export function Medications({ conditions }: MedicationsProps) {
         <button
           type="button"
           onClick={() => setIsAdding(true)}
-          className="w-[32px] h-[32px] rounded-full border border-[#D4C8BA] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors"
+          disabled={isLoading}
+          className="w-[32px] h-[32px] rounded-full border border-[#D4C8BA] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors disabled:opacity-50"
           aria-label="Add medication"
         >
           <Plus className="w-[16px] h-[16px] text-[#78716C]" />
@@ -153,7 +189,7 @@ export function Medications({ conditions }: MedicationsProps) {
         <div className="flex flex-col gap-[10px] mt-[14px]">
           {medications.map((med, i) => (
             <button
-              key={`${med.name}-${i}`}
+              key={med.id}
               type="button"
               onClick={() => setSelectedIndex(i)}
               className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] p-[16px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] text-left"
@@ -217,6 +253,7 @@ export function Medications({ conditions }: MedicationsProps) {
         open={selectedIndex !== null}
         onClose={handleDetailClose}
         medication={selectedIndex !== null ? medications[selectedIndex] : null}
+        medicationId={selectedIndex !== null ? medications[selectedIndex]?.id : null}
         onRemove={handleRemove}
         onSave={handleSave}
         conditions={conditions}
