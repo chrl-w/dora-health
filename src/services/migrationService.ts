@@ -1,13 +1,16 @@
 import { upsertPet } from './petService'
 import { createMedication, recordDose } from './medicationService'
 import { createEntry } from './journalService'
+import { addReading } from './metricsService'
 import type { MedicationDraft } from '../components/AddMedicationSheet'
 import type { JournalEntry } from '../components/AddEntrySheet'
+import type { HealthMetric } from '../components/HealthMetrics'
 
 const PROFILE_KEY = 'dora_profile'
 const MEDICATIONS_KEY = 'dora_medications'
 const DOSE_HISTORY_KEY = 'dora_dose_history'
 const JOURNAL_KEY = 'dora_journal'
+const METRICS_KEY = 'dora_metrics'
 
 export async function migrateProfile(petId: string): Promise<void> {
   const raw = localStorage.getItem(PROFILE_KEY)
@@ -77,9 +80,26 @@ export async function migrateJournal(petId: string): Promise<void> {
   }
 }
 
+export async function migrateMetrics(petId: string): Promise<void> {
+  const raw = localStorage.getItem(METRICS_KEY)
+  if (!raw) return
+
+  const storedMetrics: HealthMetric[] = JSON.parse(raw)
+  for (const metric of storedMetrics) {
+    for (const reading of metric.readings) {
+      try {
+        await addReading(petId, metric.id, { value: reading.value, date: reading.date })
+      } catch (err) {
+        console.error(`Failed to migrate reading for metric "${metric.id}":`, err)
+      }
+    }
+  }
+}
+
 export async function runFullMigration(petId: string): Promise<void> {
   await migrateProfile(petId)
   const nameToIdMap = await migrateMedications(petId)
   await migrateDoseHistory(petId, nameToIdMap)
   await migrateJournal(petId)
+  await migrateMetrics(petId)
 }
