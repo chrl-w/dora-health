@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Pill, Clock, Check, Calendar, Droplets, Pencil } from 'lucide-react'
+import { X, Pill, Clock, Check, Calendar, Droplets, Pencil, Trash2 } from 'lucide-react'
 import type { MedicationDraft } from './AddMedicationSheet'
-import { COLOUR_OPTIONS, FREQUENCY_UNITS, EMPTY_DRAFT } from './AddMedicationSheet'
+import { COLOUR_OPTIONS, FREQUENCY_UNITS, EMPTY_DRAFT, formatMedDate } from './AddMedicationSheet'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
 import { lightTint } from '../utils/colourUtils'
 
@@ -141,6 +141,14 @@ export function MedicationDetailSheet({
     const now = new Date()
     setDoseHistory((prev) => {
       const updated = [{ date: now, id: `${now.getTime()}` }, ...prev]
+      persistHistory(updated)
+      return updated
+    })
+  }
+
+  function handleDeleteDose(id: string) {
+    setDoseHistory((prev) => {
+      const updated = prev.filter((r) => r.id !== id)
       persistHistory(updated)
       return updated
     })
@@ -309,6 +317,14 @@ export function MedicationDetailSheet({
                               {formatTime(record.date)}
                             </p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDose(record.id)}
+                            className="w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-[#FEE2E2] transition-colors shrink-0"
+                            aria-label="Delete dose record"
+                          >
+                            <Trash2 className="w-[13px] h-[13px] text-[#A8A29E] hover:text-[#DC2626]" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -489,6 +505,27 @@ export function MedicationDetailSheet({
                       {editErrors.frequency && <p className="font-dm-sans text-[11px] text-[#DC2626] mt-[4px]">{editErrors.frequency}</p>}
                     </div>
 
+                    {/* Start date */}
+                    <div>
+                      <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
+                        Start date <span className="font-normal">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <div className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] flex items-center justify-between">
+                          <span className={editDraft.startDate ? 'text-[#1C1917]' : 'text-[#A8A29E]'}>
+                            {editDraft.startDate ? formatMedDate(editDraft.startDate) : 'Select date'}
+                          </span>
+                          <Calendar className="w-[16px] h-[16px] text-[#78716C] shrink-0" />
+                        </div>
+                        <input
+                          type="date"
+                          value={editDraft.startDate}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, startDate: e.target.value }))}
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                        />
+                      </div>
+                    </div>
+
                     {/* Track doses */}
                     <div className="flex items-start justify-between gap-[12px]">
                       <div>
@@ -589,6 +626,22 @@ export function MedicationDetailSheet({
                         </span>
                       </div>
                     </div>
+
+                    {medication.startDate && (
+                      <>
+                        <div className="h-px bg-[#E4D9CC]" />
+
+                        {/* Start date */}
+                        <div className="flex justify-between items-start">
+                          <span className="font-dm-sans font-normal text-[12px] text-[#78716C]">
+                            Started
+                          </span>
+                          <span className="font-dm-sans font-medium text-[13px] text-[#1C1917] text-right">
+                            {formatMedDate(medication.startDate)}
+                          </span>
+                        </div>
+                      </>
+                    )}
 
                     <div className="h-px bg-[#E4D9CC]" />
 
