@@ -112,3 +112,68 @@ export function computeMedicationReminders(
 
   return reminders
 }
+
+/**
+ * Derives care reminders from stored CareReminderData records.
+ * Only returns reminders due within the next 7 days (or already overdue).
+ */
+export function computeCareReminders(careReminders: CareReminderData[]): Reminder[] {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrow = new Date(today.getTime() + 86_400_000)
+  const cutoff = new Date(today.getTime() + SEVEN_DAYS_MS)
+
+  const reminders: Reminder[] = []
+
+  for (const reminder of careReminders) {
+    const amount =
+      typeof reminder.frequencyAmount === 'number' ? reminder.frequencyAmount : 1
+    const ms = amount * (MS_MAP[reminder.frequencyUnit] ?? 86_400_000)
+
+    let dueDate: Date
+
+    if (!reminder.lastCompleted) {
+      dueDate = today
+    } else {
+      const lastDone = new Date(reminder.lastCompleted)
+      dueDate = new Date(lastDone.getTime() + ms)
+    }
+
+    const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
+
+    if (dueDay.getTime() > cutoff.getTime()) continue
+
+    const overdue = dueDay.getTime() < today.getTime()
+    const isToday = dueDay.getTime() === today.getTime()
+    const isTomorrow = dueDay.getTime() === tomorrow.getTime()
+
+    let subtitle: string
+    if (overdue) {
+      subtitle = 'Overdue'
+    } else if (isToday) {
+      subtitle = 'Due today'
+    } else if (isTomorrow) {
+      subtitle = 'Due tomorrow'
+    } else {
+      subtitle = `Due ${dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+    }
+
+    reminders.push({
+      id: `care-${reminder.id}`,
+      type: 'care',
+      title: reminder.title,
+      subtitle,
+      dueDate,
+      overdue,
+      accentColour: reminder.accentColour,
+    })
+  }
+
+  reminders.sort((a, b) => {
+    if (a.overdue && !b.overdue) return -1
+    if (!a.overdue && b.overdue) return 1
+    return a.dueDate.getTime() - b.dueDate.getTime()
+  })
+
+  return reminders
+}
