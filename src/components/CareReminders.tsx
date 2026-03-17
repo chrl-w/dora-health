@@ -6,20 +6,11 @@ import type { MedicationDraft } from './AddMedicationSheet'
 
 /* ─── Storage helpers ─── */
 
-const MEDICATIONS_STORAGE_KEY = 'dora_medications'
 const DOSE_HISTORY_KEY = 'dora_dose_history'
 
 interface StoredDoseRecord {
   date: string
   id: string
-}
-
-function loadMedications(): MedicationDraft[] {
-  try {
-    const raw = localStorage.getItem(MEDICATIONS_STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch { /* fall back */ }
-  return []
 }
 
 function loadAllDoseHistory(): Record<string, StoredDoseRecord[]> {
@@ -34,17 +25,16 @@ function loadAllDoseHistory(): Record<string, StoredDoseRecord[]> {
 
 interface CareRemindersProps {
   conditions: string[]
+  medications: MedicationDraft[]
 }
 
-export function CareReminders({ conditions }: CareRemindersProps) {
-  const [medications, setMedications] = useState<MedicationDraft[]>(loadMedications)
+export function CareReminders({ conditions, medications }: CareRemindersProps) {
   const [doseHistory, setDoseHistory] = useState<Record<string, StoredDoseRecord[]>>(loadAllDoseHistory)
   const [selectedMed, setSelectedMed] = useState<MedicationDraft | null>(null)
 
-  // Re-sync from localStorage whenever the component mounts or gains focus
+  // Re-sync dose history from localStorage on focus
   useEffect(() => {
     function sync() {
-      setMedications(loadMedications())
       setDoseHistory(loadAllDoseHistory())
     }
     window.addEventListener('focus', sync)

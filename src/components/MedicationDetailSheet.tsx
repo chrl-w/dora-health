@@ -12,6 +12,7 @@ interface MedicationDetailSheetProps {
   open: boolean
   onClose: () => void
   medication: MedicationDraft | null
+  medicationId?: string | null
   onRemove: () => void
   onSave: (updated: MedicationDraft) => void
   conditions: string[]
