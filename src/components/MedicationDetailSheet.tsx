@@ -596,7 +596,7 @@ export function MedicationDetailSheet({
                           type="date"
                           value={editDraft.startDate}
                           onChange={(e) => setEditDraft((d) => ({ ...d, startDate: e.target.value }))}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                          className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
                         />
                       </div>
                     </div>

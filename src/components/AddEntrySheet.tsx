@@ -150,7 +150,7 @@ export function AddEntrySheet({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
             />
           </div>
         </div>
