@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Pill, Clock, Check, Calendar, Droplets, Pencil, Trash2 } from 'lucide-react'
+import { X, Pill, Clock, Check, Calendar, Droplets, Pencil, Trash2, ChevronDown } from 'lucide-react'
 import type { MedicationDraft } from './AddMedicationSheet'
 import { COLOUR_OPTIONS, FREQUENCY_UNITS, EMPTY_DRAFT, formatMedDate } from './AddMedicationSheet'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
@@ -86,6 +86,20 @@ function formatTime(date: Date): string {
   })
 }
 
+function isToday(date: Date): boolean {
+  const now = new Date()
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  )
+}
+
+function formatChipDate(date: Date): string {
+  if (isToday(date)) return 'Today'
+  return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 /* ─── Component ─── */
 
 export function MedicationDetailSheet({
@@ -101,12 +115,15 @@ export function MedicationDetailSheet({
   const [isEditing, setIsEditing] = useState(false)
   const [editDraft, setEditDraft] = useState<MedicationDraft>({ ...EMPTY_DRAFT })
   const [editErrors, setEditErrors] = useState<{ dose?: string; frequency?: string }>({})
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open && medication) {
       setEditDraft({ ...medication })
       setIsEditing(false)
       setShowRemoveConfirm(false)
+      setSelectedDate(new Date())
     }
   }, [open, medication])
 
@@ -138,12 +155,16 @@ export function MedicationDetailSheet({
   if (!medication) return null
 
   function handleRecordDose() {
-    const now = new Date()
+    const doseDate = new Date(selectedDate)
+    if (!isToday(selectedDate)) {
+      doseDate.setHours(12, 0, 0, 0)
+    }
     setDoseHistory((prev) => {
-      const updated = [{ date: now, id: `${now.getTime()}` }, ...prev]
+      const updated = [{ date: doseDate, id: `${doseDate.getTime()}` }, ...prev]
       persistHistory(updated)
       return updated
     })
+    setSelectedDate(new Date())
   }
 
   function handleDeleteDose(id: string) {
@@ -258,15 +279,31 @@ export function MedicationDetailSheet({
                   </h3>
                   <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px]">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-[10px]">
-                        <Calendar className="w-[16px] h-[16px] text-[#78716C]" />
-                        <span className="font-dm-sans font-normal text-[14px] text-[#1C1917]">
-                          {new Date().toLocaleDateString('en-GB', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                        </span>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => dateInputRef.current?.click()}
+                          className="flex items-center gap-[6px] rounded-[8px] px-[8px] py-[5px] -ml-[8px] hover:bg-[#E4D9CC] active:bg-[#DDD0C0] transition-colors"
+                        >
+                          <Calendar className="w-[15px] h-[15px] text-[#78716C] shrink-0" />
+                          <span className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
+                            {formatChipDate(selectedDate)}
+                          </span>
+                          <ChevronDown className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
+                        </button>
+                        <input
+                          ref={dateInputRef}
+                          type="date"
+                          max={new Date().toISOString().split('T')[0]}
+                          value={selectedDate.toLocaleDateString('en-CA')}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const [y, m, d] = e.target.value.split('-').map(Number)
+                              setSelectedDate(new Date(y, m - 1, d))
+                            }
+                          }}
+                          className="absolute opacity-0 pointer-events-none w-0 h-0"
+                        />
                       </div>
                       <button
                         type="button"
