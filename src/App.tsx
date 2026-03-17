@@ -138,7 +138,7 @@ function App() {
           onDoseHistoryChange={handleDoseHistoryChange}
         />
         <Journal petName={petName} petId={petId} />
-        <HealthMetrics />
+        <HealthMetrics petId={petId} />
       </div>
     </>
   )

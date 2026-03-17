@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Scale, Activity, Droplet, HeartPulse } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { MetricDetailSheet } from './MetricDetailSheet'
+import { getMetricReadings, addReading, deleteReading } from '../services/metricsService'
 
 /* ─── Types ─── */
 
@@ -99,32 +100,81 @@ function getCardChangeInfo(
   return { text: `${arrow} ${formatted} ${unit} since last record`, color }
 }
 
+/* ─── Props ─── */
+
+interface HealthMetricsProps {
+  petId: string | null
+}
+
 /* ─── Component ─── */
 
-export function HealthMetrics() {
+export function HealthMetrics({ petId }: HealthMetricsProps) {
   const [metrics, setMetrics] = useState<HealthMetric[]>(loadMetrics)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
+  // Persist to localStorage only on the local path
   useEffect(() => {
-    localStorage.setItem(METRICS_STORAGE_KEY, JSON.stringify(metrics))
-  }, [metrics])
+    if (!petId) {
+      localStorage.setItem(METRICS_STORAGE_KEY, JSON.stringify(metrics))
+    }
+  }, [metrics, petId])
 
-  function handleAddReading(metricId: string, reading: MetricReading) {
-    setMetrics((prev) =>
-      prev.map((m) =>
-        m.id === metricId
-          ? {
-              ...m,
-              readings: [...m.readings, reading].sort((a, b) =>
-                b.date.localeCompare(a.date),
-              ),
-            }
-          : m,
-      ),
-    )
+  // Load from Supabase when petId is available
+  useEffect(() => {
+    if (!petId) return
+    setIsLoading(true)
+    getMetricReadings(petId)
+      .then((readingsByMetric) => {
+        setMetrics(
+          METRIC_CONFIGS.map(({ id, name, unit, trend }) => ({
+            id,
+            name,
+            unit,
+            trend,
+            readings: readingsByMetric[id] ?? [],
+          })),
+        )
+      })
+      .catch(console.error)
+      .finally(() => setIsLoading(false))
+  }, [petId])
+
+  async function handleAddReading(metricId: string, reading: MetricReading) {
+    if (petId) {
+      const saved = await addReading(petId, metricId, { value: reading.value, date: reading.date })
+      setMetrics((prev) =>
+        prev.map((m) =>
+          m.id === metricId
+            ? {
+                ...m,
+                readings: [...m.readings, saved].sort((a, b) =>
+                  b.date.localeCompare(a.date),
+                ),
+              }
+            : m,
+        ),
+      )
+    } else {
+      setMetrics((prev) =>
+        prev.map((m) =>
+          m.id === metricId
+            ? {
+                ...m,
+                readings: [...m.readings, reading].sort((a, b) =>
+                  b.date.localeCompare(a.date),
+                ),
+              }
+            : m,
+        ),
+      )
+    }
   }
 
-  function handleDeleteReading(metricId: string, readingId: string) {
+  async function handleDeleteReading(metricId: string, readingId: string) {
+    if (petId) {
+      await deleteReading(readingId)
+    }
     setMetrics((prev) =>
       prev.map((m) =>
         m.id === metricId
@@ -138,6 +188,17 @@ export function HealthMetrics() {
   const selectedConfig = selectedMetric
     ? METRIC_CONFIGS.find((c) => c.id === selectedMetric.id)!
     : null
+
+  if (isLoading) {
+    return (
+      <div className="mt-[32px]">
+        <h2 className="font-bricolage font-semibold text-[22px] text-[#1C1917] mb-[14px]">
+          Health metrics
+        </h2>
+        <p className="font-dm-sans text-[14px] text-[#A8A29E]">Loading…</p>
+      </div>
+    )
+  }
 
   return (
     <div className="mt-[32px]">
