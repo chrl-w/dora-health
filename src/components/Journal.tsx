@@ -119,7 +119,7 @@ export function Journal({ petName, petId }: JournalProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="font-bricolage font-semibold text-[22px] text-[#1C1917]">
-          Journal 📓
+          Journal
         </h2>
         <button
           type="button"

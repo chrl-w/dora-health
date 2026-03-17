@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Pill, Clock, Check, Calendar, Droplets, Pencil, Trash2, ChevronDown } from 'lucide-react'
+import { X, Pill, Clock, Check, Calendar, Droplets, Pencil, Trash2, ChevronDown, Clock3 } from 'lucide-react'
 import type { MedicationDraft } from './AddMedicationSheet'
 import { COLOUR_OPTIONS, FREQUENCY_UNITS, EMPTY_DRAFT, formatMedDate } from './AddMedicationSheet'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/scrollLock'
@@ -29,6 +29,7 @@ interface MedicationDetailSheetProps {
 interface DoseRecord {
   date: Date
   id: string
+  doseSnapshot?: string
 }
 
 const DOSE_HISTORY_KEY = 'dora_dose_history'
@@ -39,7 +40,7 @@ function loadDoseHistory(medName: string): DoseRecord[] {
     if (raw) {
       const all: Record<string, StoredDoseRecord[]> = JSON.parse(raw)
       const records = all[medName] ?? []
-      return records.map((r) => ({ ...r, date: new Date(r.date) }))
+      return records.map((r) => ({ id: r.id, date: new Date(r.date), doseSnapshot: r.doseSnapshot }))
     }
   } catch {
     /* fall back */
@@ -51,7 +52,7 @@ function saveDoseHistory(medName: string, history: DoseRecord[]) {
   try {
     const raw = localStorage.getItem(DOSE_HISTORY_KEY)
     const all: Record<string, StoredDoseRecord[]> = raw ? JSON.parse(raw) : {}
-    all[medName] = history.map((r) => ({ ...r, date: r.date.toISOString() }))
+    all[medName] = history.map((r) => ({ id: r.id, date: r.date.toISOString(), doseSnapshot: r.doseSnapshot }))
     localStorage.setItem(DOSE_HISTORY_KEY, JSON.stringify(all))
   } catch {
     /* ignore */
@@ -124,7 +125,12 @@ export function MedicationDetailSheet({
   const [editDraft, setEditDraft] = useState<MedicationDraft>({ ...EMPTY_DRAFT })
   const [editErrors, setEditErrors] = useState<{ dose?: string; frequency?: string }>({})
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [selectedTime, setSelectedTime] = useState<string>(() => {
+    const now = new Date()
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  })
   const dateInputRef = useRef<HTMLInputElement>(null)
+  const timeInputRef = useRef<HTMLInputElement>(null)
 
   const isSupabasePath = !!(petId && medicationId && !medicationId.startsWith('local-'))
 
@@ -133,7 +139,9 @@ export function MedicationDetailSheet({
       setEditDraft({ ...medication })
       setIsEditing(false)
       setShowRemoveConfirm(false)
-      setSelectedDate(new Date())
+      const now = new Date()
+      setSelectedDate(now)
+      setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
     }
   }, [open, medication])
 
@@ -150,7 +158,7 @@ export function MedicationDetailSheet({
     if (!medication) return
     if (isSupabasePath) {
       getDoseHistory(medicationId!).then((records) => {
-        setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date) })))
+        setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date), doseSnapshot: r.doseSnapshot })))
       }).catch(console.error)
     } else {
       setDoseHistory(loadDoseHistory(medication.name))
@@ -169,28 +177,38 @@ export function MedicationDetailSheet({
 
   if (!medication) return null
 
+  const showTimePicker = medication.frequencyUnit === 'hours' || medication.frequencyUnit === 'days'
+
   async function handleRecordDose() {
     const doseDate = new Date(selectedDate)
-    if (!isToday(selectedDate)) {
+    if (showTimePicker && selectedTime) {
+      const [h, m] = selectedTime.split(':').map(Number)
+      doseDate.setHours(h, m, 0, 0)
+    } else if (!isToday(selectedDate)) {
       doseDate.setHours(12, 0, 0, 0)
     }
+    const doseSnapshot = medication.dose?.trim() || undefined
 
     if (isSupabasePath) {
       setIsLoading(true)
       try {
-        const record = await recordDose(petId!, medicationId!, doseDate)
-        setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date) }, ...prev])
-        setSelectedDate(new Date())
+        const record = await recordDose(petId!, medicationId!, doseDate, doseSnapshot)
+        setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date), doseSnapshot: record.doseSnapshot }, ...prev])
+        const now = new Date()
+        setSelectedDate(now)
+        setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
       } finally {
         setIsLoading(false)
       }
     } else {
       setDoseHistory((prev) => {
-        const updated = [{ date: doseDate, id: `${doseDate.getTime()}` }, ...prev]
+        const updated = [{ date: doseDate, id: `${doseDate.getTime()}`, doseSnapshot }, ...prev]
         persistHistory(updated)
         return updated
       })
-      setSelectedDate(new Date())
+      const now = new Date()
+      setSelectedDate(now)
+      setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
     }
   }
 
@@ -316,38 +334,68 @@ export function MedicationDetailSheet({
                     Record dose
                   </h3>
                   <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px]">
-                    <div className="flex items-center justify-between">
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => dateInputRef.current?.click()}
-                          className="flex items-center gap-[6px] rounded-[8px] px-[8px] py-[5px] -ml-[8px] hover:bg-[#E4D9CC] active:bg-[#DDD0C0] transition-colors"
-                        >
-                          <Calendar className="w-[15px] h-[15px] text-[#78716C] shrink-0" />
-                          <span className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
-                            {formatChipDate(selectedDate)}
-                          </span>
-                          <ChevronDown className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
-                        </button>
-                        <input
-                          ref={dateInputRef}
-                          type="date"
-                          max={new Date().toISOString().split('T')[0]}
-                          value={selectedDate.toLocaleDateString('en-CA')}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              const [y, m, d] = e.target.value.split('-').map(Number)
-                              setSelectedDate(new Date(y, m - 1, d))
-                            }
-                          }}
-                          className="absolute opacity-0 pointer-events-none w-0 h-0"
-                        />
+                    <div className="flex items-center justify-between gap-[8px]">
+                      <div className="flex items-center gap-[4px]">
+                        {/* Date picker */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => dateInputRef.current?.click()}
+                            className="flex items-center gap-[6px] rounded-[8px] px-[8px] py-[5px] hover:bg-[#E4D9CC] active:bg-[#DDD0C0] transition-colors"
+                          >
+                            <Calendar className="w-[15px] h-[15px] text-[#78716C] shrink-0" />
+                            <span className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
+                              {formatChipDate(selectedDate)}
+                            </span>
+                            <ChevronDown className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
+                          </button>
+                          <input
+                            ref={dateInputRef}
+                            type="date"
+                            max={new Date().toISOString().split('T')[0]}
+                            value={selectedDate.toLocaleDateString('en-CA')}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const [y, m, d] = e.target.value.split('-').map(Number)
+                                setSelectedDate(new Date(y, m - 1, d))
+                              }
+                            }}
+                            className="absolute opacity-0 pointer-events-none w-0 h-0"
+                          />
+                        </div>
+
+                        {/* Time picker — only for hours/days frequency */}
+                        {showTimePicker && (
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => timeInputRef.current?.click()}
+                              className="flex items-center gap-[6px] rounded-[8px] px-[8px] py-[5px] hover:bg-[#E4D9CC] active:bg-[#DDD0C0] transition-colors"
+                            >
+                              <Clock3 className="w-[14px] h-[14px] text-[#78716C] shrink-0" />
+                              <span className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
+                                {selectedTime}
+                              </span>
+                              <ChevronDown className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
+                            </button>
+                            <input
+                              ref={timeInputRef}
+                              type="time"
+                              value={selectedTime}
+                              onChange={(e) => {
+                                if (e.target.value) setSelectedTime(e.target.value)
+                              }}
+                              className="absolute opacity-0 pointer-events-none w-0 h-0"
+                            />
+                          </div>
+                        )}
                       </div>
+
                       <button
                         type="button"
                         onClick={handleRecordDose}
                         disabled={isLoading}
-                        className="flex items-center gap-[6px] bg-[#C4623A] rounded-[8px] px-[14px] py-[8px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all disabled:opacity-50"
+                        className="flex items-center gap-[6px] bg-[#C4623A] rounded-[8px] px-[14px] py-[8px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all disabled:opacity-50 shrink-0"
                       >
                         <Check className="w-[14px] h-[14px]" />
                         Mark as given
@@ -386,7 +434,7 @@ export function MedicationDetailSheet({
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-dm-sans font-medium text-[13px] text-[#1C1917]">
-                              Dose given
+                              {record.doseSnapshot ? `${record.doseSnapshot} dose given` : 'Dose given'}
                             </p>
                             <p className="font-dm-sans font-normal text-[11px] text-[#78716C]">
                               {formatDate(record.date)} at{' '}

@@ -6,6 +6,7 @@ export type Medication = MedicationDraft & { id: string }
 export interface StoredDoseRecord {
   date: string
   id: string
+  doseSnapshot?: string
 }
 
 function toMedication(row: Record<string, unknown>): Medication {
@@ -78,7 +79,11 @@ export async function getDoseHistory(medicationId: string): Promise<StoredDoseRe
     .eq('medication_id', medicationId)
     .order('recorded_at', { ascending: false })
   if (error) throw error
-  return (data ?? []).map((row) => ({ id: row.id as string, date: row.recorded_at as string }))
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    date: row.recorded_at as string,
+    doseSnapshot: (row.dose_snapshot ?? undefined) as string | undefined,
+  }))
 }
 
 export async function getAllDoseHistory(petId: string): Promise<Record<string, StoredDoseRecord[]>> {
@@ -92,7 +97,11 @@ export async function getAllDoseHistory(petId: string): Promise<Record<string, S
   for (const row of data ?? []) {
     const medId = row.medication_id as string
     if (!result[medId]) result[medId] = []
-    result[medId].push({ id: row.id as string, date: row.recorded_at as string })
+    result[medId].push({
+      id: row.id as string,
+      date: row.recorded_at as string,
+      doseSnapshot: (row.dose_snapshot ?? undefined) as string | undefined,
+    })
   }
   return result
 }
@@ -101,14 +110,24 @@ export async function recordDose(
   petId: string,
   medicationId: string,
   recordedAt: Date,
+  doseSnapshot?: string,
 ): Promise<StoredDoseRecord> {
   const { data, error } = await supabase
     .from('dose_history')
-    .insert({ pet_id: petId, medication_id: medicationId, recorded_at: recordedAt.toISOString() })
+    .insert({
+      pet_id: petId,
+      medication_id: medicationId,
+      recorded_at: recordedAt.toISOString(),
+      dose_snapshot: doseSnapshot ?? null,
+    })
     .select()
     .single()
   if (error) throw error
-  return { id: data.id as string, date: data.recorded_at as string }
+  return {
+    id: data.id as string,
+    date: data.recorded_at as string,
+    doseSnapshot: (data.dose_snapshot ?? undefined) as string | undefined,
+  }
 }
 
 export async function deleteDose(doseId: string): Promise<void> {
