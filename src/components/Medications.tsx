@@ -152,7 +152,7 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
               onClick={() => setSelectedIndex(i)}
               className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] p-[16px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] text-left"
             >
-              <div className="flex items-center gap-[12px]">
+              <div className="flex items-start gap-[12px]">
                 {/* Pill icon */}
                 <div
                   className="w-[36px] h-[36px] rounded-full flex items-center justify-center shrink-0"
@@ -177,7 +177,7 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
 
                 {/* Condition badge */}
                 {med.condition && (
-                  <span className="bg-[#F0E8DA] rounded-full px-[8px] py-[2px] font-dm-sans font-medium text-[11px] text-[#78716C] shrink-0">
+                  <span className="bg-[#F0E8DA] rounded-full px-[8px] py-[2px] font-dm-sans font-medium text-[11px] text-[#78716C] shrink-0 mt-[2px]">
                     {med.condition}
                   </span>
                 )}
