@@ -4,6 +4,7 @@ import { computeMedicationReminders, computeCareReminders, REMINDER_TYPE_CONFIG 
 import { MedicationDetailSheet } from './MedicationDetailSheet'
 import { AddCareReminderSheet } from './AddCareReminderSheet'
 import { CompleteReminderSheet } from './CompleteReminderSheet'
+import { AllRemindersSheet } from './AllRemindersSheet'
 import {
   getCareReminders,
   createReminder,
@@ -14,7 +15,7 @@ import type { CareReminderData, Reminder } from '../utils/reminderUtils'
 
 /* ─── Sheet state ─── */
 
-type ActiveSheet = 'none' | 'add' | 'complete'
+type ActiveSheet = 'none' | 'add' | 'all' | 'complete'
 
 /* ─── Icon map ─── */
 
@@ -60,12 +61,21 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
     return a.dueDate.getTime() - b.dueDate.getTime()
   })
 
+  const bannerReminders = allReminders
+  const hasActiveReminders = bannerReminders.length > 0
+  const hasCareReminders = careReminders.length > 0
+
   const hasContent = allReminders.length > 0 || (petId !== null)
 
   if (!hasContent) return null
 
   // Show section if there's a petId (to show the "Add reminder" button) or there are reminders
   if (allReminders.length === 0 && !petId) return null
+
+  function handleAddFromAll() {
+    setActiveSheet('none')
+    setTimeout(() => setActiveSheet('add'), 200)
+  }
 
   function handleLogDose(medicationName: string) {
     const med = medications.find((m) => m.name === medicationName)
@@ -119,7 +129,8 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
           <p className="font-dm-sans text-[13px] text-[#A8A29E] px-[4px]">Loading reminders…</p>
         ) : (
           <div className="flex flex-col gap-[8px]">
-            {allReminders.map((reminder) => {
+            {/* State A: banner cards (active reminders within 7-day window) */}
+            {hasActiveReminders && bannerReminders.map((reminder) => {
               const isCare = reminder.type === 'care'
               const careData = isCare
                 ? careReminders.find((r) => `care-${r.id}` === reminder.id)
@@ -228,7 +239,21 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
               )
             })}
 
-            {/* Add reminder button */}
+            {/* States A + B: "View all X reminders" link */}
+            {hasCareReminders && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveSheet('all')}
+                  className="font-dm-sans text-[13px] hover:opacity-70 transition-opacity"
+                  style={{ color: '#C4623A' }}
+                >
+                  View all {careReminders.length} reminder{careReminders.length === 1 ? '' : 's'} ›
+                </button>
+              </div>
+            )}
+
+            {/* Add reminder button — always shown */}
             <button
               type="button"
               disabled={!petId}
@@ -282,6 +307,15 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
           setActiveSheet('none')
           setCompletingReminder(null)
         }}
+      />
+
+      {/* AllRemindersSheet — full list view */}
+      <AllRemindersSheet
+        open={activeSheet === 'all'}
+        onClose={() => setActiveSheet('none')}
+        careReminders={careReminders}
+        onComplete={(id) => { handleCompleteReminder(`care-${id}`) }}
+        onAddReminder={handleAddFromAll}
       />
     </>
   )
