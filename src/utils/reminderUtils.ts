@@ -1,4 +1,5 @@
-import type { MedicationDraft } from '../components/AddMedicationSheet'
+import type { Medication } from '../services/medicationService'
+import type { StoredDoseRecord } from '../services/medicationService'
 
 /* ─── Types ─── */
 
@@ -25,11 +26,6 @@ export interface CareReminderData {
   accentColour: string
 }
 
-interface StoredDoseRecord {
-  date: string
-  id: string
-}
-
 /* ─── Helpers ─── */
 
 const MS_MAP: Record<string, number> = {
@@ -44,9 +40,10 @@ const SEVEN_DAYS_MS = 7 * 86_400_000
 /**
  * Derives medication reminders from stored medications + dose history.
  * Only returns reminders due within the next 7 days (or already overdue).
+ * doseHistory is keyed by medication id (for both localStorage and Supabase paths).
  */
 export function computeMedicationReminders(
-  medications: MedicationDraft[],
+  medications: Medication[],
   doseHistory: Record<string, StoredDoseRecord[]>,
 ): Reminder[] {
   const now = new Date()
@@ -59,7 +56,7 @@ export function computeMedicationReminders(
   for (const med of medications) {
     if (!med.trackDoses) continue
 
-    const history = doseHistory[med.name] ?? []
+    const history = doseHistory[med.id] ?? []
     const amount =
       typeof med.frequencyAmount === 'number' ? med.frequencyAmount : 1
     const ms = amount * (MS_MAP[med.frequencyUnit] ?? 86_400_000)

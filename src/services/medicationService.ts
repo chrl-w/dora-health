@@ -3,6 +3,11 @@ import type { MedicationDraft } from '../components/AddMedicationSheet'
 
 export type Medication = MedicationDraft & { id: string }
 
+export interface StoredDoseRecord {
+  date: string
+  id: string
+}
+
 function toMedication(row: Record<string, unknown>): Medication {
   return {
     id: row.id as string,
@@ -63,5 +68,53 @@ export async function deleteMedication(id: string): Promise<void> {
     .from('medications')
     .delete()
     .eq('id', id)
+  if (error) throw error
+}
+
+export async function getDoseHistory(medicationId: string): Promise<StoredDoseRecord[]> {
+  const { data, error } = await supabase
+    .from('dose_history')
+    .select('*')
+    .eq('medication_id', medicationId)
+    .order('recorded_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((row) => ({ id: row.id as string, date: row.recorded_at as string }))
+}
+
+export async function getAllDoseHistory(petId: string): Promise<Record<string, StoredDoseRecord[]>> {
+  const { data, error } = await supabase
+    .from('dose_history')
+    .select('*')
+    .eq('pet_id', petId)
+    .order('recorded_at', { ascending: false })
+  if (error) throw error
+  const result: Record<string, StoredDoseRecord[]> = {}
+  for (const row of data ?? []) {
+    const medId = row.medication_id as string
+    if (!result[medId]) result[medId] = []
+    result[medId].push({ id: row.id as string, date: row.recorded_at as string })
+  }
+  return result
+}
+
+export async function recordDose(
+  petId: string,
+  medicationId: string,
+  recordedAt: Date,
+): Promise<StoredDoseRecord> {
+  const { data, error } = await supabase
+    .from('dose_history')
+    .insert({ pet_id: petId, medication_id: medicationId, recorded_at: recordedAt.toISOString() })
+    .select()
+    .single()
+  if (error) throw error
+  return { id: data.id as string, date: data.recorded_at as string }
+}
+
+export async function deleteDose(doseId: string): Promise<void> {
+  const { error } = await supabase
+    .from('dose_history')
+    .delete()
+    .eq('id', doseId)
   if (error) throw error
 }

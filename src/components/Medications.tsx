@@ -8,6 +8,7 @@ import {
   updateMedication,
   deleteMedication,
   type Medication,
+  type StoredDoseRecord,
 } from '../services/medicationService'
 
 /** Singularise a frequency unit when the amount is 1 (e.g. "days" → "day"). */
@@ -19,12 +20,7 @@ function pluralUnit(amount: number | string, unit: string): string {
 const MEDICATIONS_STORAGE_KEY = 'dora_medications'
 const DOSE_HISTORY_KEY = 'dora_dose_history'
 
-interface StoredDoseRecord {
-  date: string
-  id: string
-}
-
-function loadAllDoseHistory(): Record<string, StoredDoseRecord[]> {
+function loadAllDoseHistoryRaw(): Record<string, StoredDoseRecord[]> {
   try {
     const raw = localStorage.getItem(DOSE_HISTORY_KEY)
     if (raw) return JSON.parse(raw)
@@ -67,13 +63,14 @@ interface MedicationsProps {
   petId: string | null
   medications: Medication[]
   onMedicationsChange: (meds: Medication[]) => void
+  doseHistory: Record<string, StoredDoseRecord[]>
+  onDoseHistoryChange?: () => void
 }
 
-export function Medications({ conditions, petId, medications, onMedicationsChange }: MedicationsProps) {
+export function Medications({ conditions, petId, medications, onMedicationsChange, doseHistory, onDoseHistoryChange }: MedicationsProps) {
   const [isAdding, setIsAdding] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
-  const [doseHistory, setDoseHistory] = useState<Record<string, StoredDoseRecord[]>>(loadAllDoseHistory)
 
   // Persist to localStorage when in localStorage mode
   useEffect(() => {
@@ -111,7 +108,7 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
       }
     } else {
       onMedicationsChange(medications.filter((_, i) => i !== selectedIndex))
-      setDoseHistory(loadAllDoseHistory())
+      onDoseHistoryChange?.()
     }
     setSelectedIndex(null)
   }
@@ -130,9 +127,9 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
         setIsLoading(false)
       }
     } else {
-      // Migrate dose history to new key if the medication was renamed
+      // Migrate dose history key in localStorage if the medication was renamed
       if (med.name !== updated.name) {
-        const allHistory = loadAllDoseHistory()
+        const allHistory = loadAllDoseHistoryRaw()
         if (allHistory[med.name]) {
           allHistory[updated.name] = allHistory[med.name]
           delete allHistory[med.name]
@@ -142,14 +139,13 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
       onMedicationsChange(
         medications.map((m, i) => (i === selectedIndex ? { ...updated, id: med.id } : m))
       )
-      setDoseHistory(loadAllDoseHistory())
+      onDoseHistoryChange?.()
     }
     setSelectedIndex(null)
   }
 
   function handleDetailClose() {
     setSelectedIndex(null)
-    setDoseHistory(loadAllDoseHistory())
   }
 
   return (
@@ -227,7 +223,7 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
 
               {/* Tracking row */}
               {(() => {
-                const { label, overdue } = calcNextDue(med, doseHistory[med.name] ?? [])
+                const { label, overdue } = calcNextDue(med, doseHistory[med.id] ?? [])
                 return (
                   <div className="flex items-center gap-[4px] mt-[10px] ml-[48px]">
                     <Clock className={`w-[12px] h-[12px] ${overdue ? 'text-[#DC2626]' : 'text-[#78716C]'}`} />
@@ -254,6 +250,8 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
         onClose={handleDetailClose}
         medication={selectedIndex !== null ? medications[selectedIndex] : null}
         medicationId={selectedIndex !== null ? medications[selectedIndex]?.id : null}
+        petId={petId}
+        onDoseHistoryChange={onDoseHistoryChange}
         onRemove={handleRemove}
         onSave={handleSave}
         conditions={conditions}
