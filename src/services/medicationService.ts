@@ -6,7 +6,6 @@ export type Medication = MedicationDraft & { id: string }
 export interface StoredDoseRecord {
   date: string
   id: string
-  doseSnapshot?: string
 }
 
 function toMedication(row: Record<string, unknown>): Medication {
@@ -82,7 +81,6 @@ export async function getDoseHistory(medicationId: string): Promise<StoredDoseRe
   return (data ?? []).map((row) => ({
     id: row.id as string,
     date: row.recorded_at as string,
-    doseSnapshot: (row.dose_snapshot ?? undefined) as string | undefined,
   }))
 }
 
@@ -100,7 +98,6 @@ export async function getAllDoseHistory(petId: string): Promise<Record<string, S
     result[medId].push({
       id: row.id as string,
       date: row.recorded_at as string,
-      doseSnapshot: (row.dose_snapshot ?? undefined) as string | undefined,
     })
   }
   return result
@@ -110,7 +107,6 @@ export async function recordDose(
   petId: string,
   medicationId: string,
   recordedAt: Date,
-  doseSnapshot?: string,
 ): Promise<StoredDoseRecord> {
   const { data, error } = await supabase
     .from('dose_history')
@@ -118,7 +114,6 @@ export async function recordDose(
       pet_id: petId,
       medication_id: medicationId,
       recorded_at: recordedAt.toISOString(),
-      dose_snapshot: doseSnapshot ?? null,
     })
     .select()
     .single()
@@ -126,7 +121,6 @@ export async function recordDose(
   return {
     id: data.id as string,
     date: data.recorded_at as string,
-    doseSnapshot: (data.dose_snapshot ?? undefined) as string | undefined,
   }
 }
 
