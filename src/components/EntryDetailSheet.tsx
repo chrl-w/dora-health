@@ -3,7 +3,6 @@ import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X, BookOpen, Pencil, Calendar, Camera, Plus } from 'lucide-react'
 import type { JournalEntry } from './AddEntrySheet'
 import { SYMPTOMS, formatDateDisplay, todayISO } from './AddEntrySheet'
-import { compressPhoto } from '../utils/imageUtils'
 
 const BUILTIN_SYMPTOM_LABELS = new Set(SYMPTOMS.map((s) => s.label))
 
@@ -93,9 +92,13 @@ export function EntryDetailSheet({
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
     files.forEach((file) => {
-      compressPhoto(file).then((compressed) => {
-        setEditPhotos((prev) => [...prev, compressed])
-      })
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setEditPhotos((prev) => [...prev, e.target!.result as string])
+        }
+      }
+      reader.readAsDataURL(file)
     })
     e.target.value = ''
   }

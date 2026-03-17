@@ -166,7 +166,7 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
 
                 {/* Text content */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-dm-sans font-semibold text-[15px] text-[#1C1917]">
+                  <p className="font-dm-sans font-semibold text-[15px] text-[#1C1917] truncate">
                     {med.name}
                   </p>
                   <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[2px]">
@@ -177,7 +177,7 @@ export function Medications({ conditions, petId, medications, onMedicationsChang
 
                 {/* Condition badge */}
                 {med.condition && (
-                  <span className="bg-[#F0E8DA] rounded-full px-[8px] py-[2px] font-dm-sans font-medium text-[11px] text-[#78716C] shrink-0">
+                  <span className="bg-[#F0E8DA] rounded-full px-[8px] py-[2px] font-dm-sans font-medium text-[11px] text-[#78716C] shrink-0 max-w-[130px] truncate">
                     {med.condition}
                   </span>
                 )}
