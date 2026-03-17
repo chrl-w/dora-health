@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Bell, Plus, Trash2 } from 'lucide-react'
-import { computeMedicationReminders, computeCareReminders } from '../utils/reminderUtils'
+import { Bell, Plus, Droplets, Package, Stethoscope } from 'lucide-react'
+import { computeMedicationReminders, computeCareReminders, REMINDER_TYPE_CONFIG } from '../utils/reminderUtils'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
 import { AddCareReminderSheet } from './AddCareReminderSheet'
+import { CompleteReminderSheet } from './CompleteReminderSheet'
 import {
   getCareReminders,
   createReminder,
@@ -10,6 +11,19 @@ import {
 } from '../services/careRemindersService'
 import type { Medication, StoredDoseRecord } from '../services/medicationService'
 import type { CareReminderData, Reminder } from '../utils/reminderUtils'
+
+/* ─── Sheet state ─── */
+
+type ActiveSheet = 'none' | 'add' | 'complete'
+
+/* ─── Icon map ─── */
+
+const TYPE_ICON_MAP = {
+  blood_test: Droplets,
+  order: Package,
+  vet_visit: Stethoscope,
+  custom: Bell,
+} as const
 
 /* ─── Component ─── */
 
@@ -25,7 +39,8 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null)
   const [careReminders, setCareReminders] = useState<CareReminderData[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [addSheetOpen, setAddSheetOpen] = useState(false)
+  const [activeSheet, setActiveSheet] = useState<ActiveSheet>('none')
+  const [completingReminder, setCompletingReminder] = useState<Reminder | null>(null)
 
   // Load custom care reminders from Supabase when petId is set
   useEffect(() => {
@@ -69,16 +84,7 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
     } catch (err) {
       console.error('Failed to create reminder:', err)
     }
-    setAddSheetOpen(false)
-  }
-
-  async function handleDeleteReminder(id: string) {
-    try {
-      await deleteReminder(id)
-      setCareReminders((prev) => prev.filter((r) => r.id !== id))
-    } catch (err) {
-      console.error('Failed to delete reminder:', err)
-    }
+    setActiveSheet('none')
   }
 
   async function handleCompleteReminder(reminderId: string) {
@@ -91,6 +97,10 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
       console.error('Failed to complete reminder:', err)
     }
   }
+
+  const completingCareData = completingReminder
+    ? (careReminders.find((r) => `care-${r.id}` === completingReminder.id) ?? null)
+    : null
 
   return (
     <>
@@ -110,18 +120,70 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
         ) : (
           <div className="flex flex-col gap-[8px]">
             {allReminders.map((reminder) => {
-              const showPulse = reminder.overdue || reminder.subtitle === 'Due today'
               const isCare = reminder.type === 'care'
               const careData = isCare
                 ? careReminders.find((r) => `care-${r.id}` === reminder.id)
                 : null
 
+              /* ── Care reminder card ── */
+              if (isCare && careData) {
+                const TypeIcon = TYPE_ICON_MAP[careData.type]
+                const config = REMINDER_TYPE_CONFIG[careData.type]
+                const combinedTitle = `${reminder.title} — ${reminder.subtitle}`
+
+                return (
+                  <div
+                    key={reminder.id}
+                    className="border border-[#E4D9CC] rounded-[10px] px-[16px] py-[14px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] flex items-center gap-[12px]"
+                    style={{ backgroundColor: careData.surfaceColour }}
+                  >
+                    {/* Type icon circle */}
+                    <div
+                      className="shrink-0 w-[36px] h-[36px] rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: careData.accentColour }}
+                    >
+                      <TypeIcon className="w-[18px] h-[18px] text-white" />
+                    </div>
+
+                    {/* Text */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-dm-sans font-semibold text-[14px] text-[#1C1917] truncate">
+                        {combinedTitle}
+                      </p>
+                      {careData.notes && (
+                        <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[1px] truncate">
+                          {careData.notes}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Action button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCompletingReminder(reminder)
+                        setActiveSheet('complete')
+                      }}
+                      className="shrink-0 border rounded-[8px] px-[10px] py-[6px] font-dm-sans font-semibold text-[12px] hover:opacity-80 active:scale-[0.98] transition-all"
+                      style={{
+                        borderColor: careData.accentColour,
+                        color: careData.accentColour,
+                      }}
+                    >
+                      {config.actionLabel}
+                    </button>
+                  </div>
+                )
+              }
+
+              /* ── Medication reminder card (unchanged) ── */
+              const showPulse = reminder.overdue || reminder.subtitle === 'due today'
               return (
                 <div
                   key={reminder.id}
                   className="bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[16px] py-[14px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] flex items-center gap-[12px]"
                 >
-                  {/* Accent dot */}
+                  {/* Pulsing dot */}
                   <div className="relative shrink-0 flex items-center justify-center w-[10px] h-[10px]">
                     {showPulse && (
                       <span
@@ -148,7 +210,7 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
                     </p>
                   </div>
 
-                  {/* Log dose CTA — medication reminders */}
+                  {/* Log dose CTA */}
                   {reminder.type === 'medication' && reminder.medicationName && (
                     <button
                       type="button"
@@ -162,31 +224,6 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
                       Log dose
                     </button>
                   )}
-
-                  {/* Done + edit/delete — care reminders */}
-                  {isCare && careData && (
-                    <div className="flex items-center gap-[6px] shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleCompleteReminder(reminder.id)}
-                        className="border rounded-[8px] px-[10px] py-[6px] font-dm-sans font-semibold text-[12px] hover:opacity-80 active:scale-[0.98] transition-all"
-                        style={{
-                          borderColor: reminder.accentColour,
-                          color: reminder.accentColour,
-                        }}
-                      >
-                        Done
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteReminder(careData.id)}
-                        className="p-[6px] text-[#78716C] hover:text-[#DC2626] transition-colors"
-                        aria-label="Delete reminder"
-                      >
-                        <Trash2 className="w-[14px] h-[14px]" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               )
             })}
@@ -195,7 +232,7 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
             <button
               type="button"
               disabled={!petId}
-              onClick={() => petId && setAddSheetOpen(true)}
+              onClick={() => petId && setActiveSheet('add')}
               className={`w-full border border-dashed rounded-[10px] px-[16px] py-[12px] flex items-center justify-center gap-[6px] font-dm-sans font-medium text-[13px] transition-colors ${
                 petId
                   ? 'border-[#C4623A] text-[#C4623A] hover:bg-[#FDF2EC] cursor-pointer'
@@ -224,11 +261,28 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
 
       {/* AddCareReminderSheet — add */}
       <AddCareReminderSheet
-        open={addSheetOpen}
-        onClose={() => setAddSheetOpen(false)}
+        open={activeSheet === 'add'}
+        onClose={() => setActiveSheet('none')}
         onSave={handleAddReminder}
       />
 
+      {/* CompleteReminderSheet — complete care reminder */}
+      <CompleteReminderSheet
+        open={activeSheet === 'complete'}
+        onClose={() => {
+          setActiveSheet('none')
+          setCompletingReminder(null)
+        }}
+        reminder={completingReminder}
+        careData={completingCareData}
+        onComplete={() => {
+          if (completingReminder) {
+            handleCompleteReminder(completingReminder.id)
+          }
+          setActiveSheet('none')
+          setCompletingReminder(null)
+        }}
+      />
     </>
   )
 }
