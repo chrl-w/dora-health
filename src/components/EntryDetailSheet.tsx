@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, BookOpen, Pencil, Calendar, Camera, Plus } from 'lucide-react'
+import { X, BookOpen, Pencil, Calendar, Camera, Plus, Star } from 'lucide-react'
 import type { JournalEntry } from './AddEntrySheet'
-import { SYMPTOMS, formatDateDisplay, todayISO } from './AddEntrySheet'
+import { SYMPTOMS, ENTRY_TYPES, formatDateDisplay, todayISO } from './AddEntrySheet'
 import { compressPhoto } from '../utils/imageUtils'
 
 const BUILTIN_SYMPTOM_LABELS = new Set(SYMPTOMS.map((s) => s.label))
@@ -31,6 +31,8 @@ export function EntryDetailSheet({
   const [isEditing, setIsEditing] = useState(false)
   const [editDate, setEditDate] = useState('')
   const [editNote, setEditNote] = useState('')
+  const [editType, setEditType] = useState<JournalEntry['type']>('general')
+  const [editImportant, setEditImportant] = useState(false)
   const [editSymptoms, setEditSymptoms] = useState<string[]>([])
   const [editCustomSymptoms, setEditCustomSymptoms] = useState<string[]>([])
   const [customInput, setCustomInput] = useState('')
@@ -45,6 +47,8 @@ export function EntryDetailSheet({
     if (open && entry) {
       setEditDate(entry.date)
       setEditNote(entry.note)
+      setEditType(entry.type ?? 'general')
+      setEditImportant(entry.important ?? false)
       setEditSymptoms([...entry.symptoms])
       setEditCustomSymptoms(entry.symptoms.filter((s) => !BUILTIN_SYMPTOM_LABELS.has(s)))
       setCustomInput('')
@@ -76,6 +80,8 @@ export function EntryDetailSheet({
   function handleCancelEdit() {
     setEditDate(entry!.date)
     setEditNote(entry!.note)
+    setEditType(entry!.type ?? 'general')
+    setEditImportant(entry!.important ?? false)
     setEditSymptoms([...entry!.symptoms])
     setEditCustomSymptoms(entry!.symptoms.filter((s) => !BUILTIN_SYMPTOM_LABELS.has(s)))
     setCustomInput('')
@@ -85,8 +91,14 @@ export function EntryDetailSheet({
 
   function handleSave() {
     if (!editNote.trim()) return
-    onEdit({ ...entry!, date: editDate, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
+    onEdit({ ...entry!, date: editDate, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos, type: editType, important: editImportant })
     setIsEditing(false)
+  }
+
+  function handleToggleImportant() {
+    const updated = { ...entry!, important: !editImportant }
+    setEditImportant(!editImportant)
+    onEdit(updated)
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -192,14 +204,26 @@ export function EntryDetailSheet({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors shrink-0"
-                  aria-label="Close"
-                  onClick={handleClose}
-                >
-                  <X className="w-[14px] h-[14px] text-[#78716C]" />
-                </button>
+                <div className="flex items-center gap-[8px]">
+                  <button
+                    type="button"
+                    onClick={handleToggleImportant}
+                    className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors shrink-0"
+                    aria-label={editImportant ? 'Unmark as important' : 'Mark as important'}
+                  >
+                    <Star
+                      className={`w-[14px] h-[14px] transition-colors ${editImportant ? 'fill-[#C4623A] text-[#C4623A]' : 'text-[#78716C]'}`}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors shrink-0"
+                    aria-label="Close"
+                    onClick={handleClose}
+                  >
+                    <X className="w-[14px] h-[14px] text-[#78716C]" />
+                  </button>
+                </div>
               </div>
 
               {/* Scrollable body */}
@@ -243,6 +267,30 @@ export function EntryDetailSheet({
                               onChange={(e) => setEditDate(e.target.value || todayISO())}
                               className="absolute inset-0 opacity-0 cursor-pointer w-full"
                             />
+                          </div>
+                        </div>
+
+                        {/* Entry type */}
+                        <div>
+                          <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[8px] block">
+                            Type
+                          </label>
+                          <div className="flex gap-[6px] overflow-x-auto pb-[2px] -mx-[24px] px-[24px] scrollbar-hide">
+                            {ENTRY_TYPES.map(({ type, label, Icon }) => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => setEditType(type)}
+                                className={`flex items-center gap-[5px] rounded-full px-[11px] py-[6px] font-dm-sans font-normal text-[13px] whitespace-nowrap shrink-0 transition-colors ${
+                                  editType === type
+                                    ? 'bg-[#C4623A] text-white'
+                                    : 'bg-[#F0E8DA] text-[#78716C]'
+                                }`}
+                              >
+                                <Icon className="w-[12px] h-[12px]" />
+                                <span>{label}</span>
+                              </button>
+                            ))}
                           </div>
                         </div>
 
@@ -383,6 +431,19 @@ export function EntryDetailSheet({
                           className="relative bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px] cursor-pointer hover:border-[#D4C8BA] active:scale-[0.99] transition-all"
                         >
                           <Pencil className="absolute top-[12px] right-[12px] w-[12px] h-[12px] text-[#78716C]" />
+
+                          {/* Entry type badge (non-general only) */}
+                          {entry.type && entry.type !== 'general' && (() => {
+                            const et = ENTRY_TYPES.find((t) => t.type === entry.type)
+                            return et ? (
+                              <div className="flex items-center gap-[5px] mb-[10px]">
+                                <span className="inline-flex items-center gap-[4px] bg-[#F0E8DA] rounded-full px-[10px] py-[3px] font-dm-sans font-normal text-[12px] text-[#78716C]">
+                                  <et.Icon className="w-[11px] h-[11px]" />
+                                  {et.label}
+                                </span>
+                              </div>
+                            ) : null
+                          })()}
 
                           {/* Note */}
                           <p className="font-dm-sans font-medium text-[12px] text-[#78716C] mb-[4px]">

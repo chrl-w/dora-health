@@ -9,6 +9,8 @@ interface BottomSheetProps {
   title: string
   /** Optional icon rendered before the title */
   titleIcon?: ReactNode
+  /** Optional action(s) rendered left of the close button */
+  headerAction?: ReactNode
   children: ReactNode
 }
 
@@ -17,6 +19,7 @@ export function BottomSheet({
   onClose,
   title,
   titleIcon,
+  headerAction,
   children,
 }: BottomSheetProps) {
   const dragControls = useDragControls()
@@ -74,14 +77,17 @@ export function BottomSheet({
                   {title}
                 </h2>
               </div>
-              <button
-                type="button"
-                className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors"
-                aria-label="Close"
-                onClick={onClose}
-              >
-                <X className="w-[14px] h-[14px] text-[#78716C]" />
-              </button>
+              <div className="flex items-center gap-[8px]">
+                {headerAction}
+                <button
+                  type="button"
+                  className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors"
+                  aria-label="Close"
+                  onClick={onClose}
+                >
+                  <X className="w-[14px] h-[14px] text-[#78716C]" />
+                </button>
+              </div>
             </div>
 
             {/* Scrollable body */}

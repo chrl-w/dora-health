@@ -8,6 +8,8 @@ function toEntry(row: Record<string, unknown>): JournalEntry {
     note: row.note as string,
     symptoms: (row.symptoms ?? []) as string[],
     photos: (row.photos ?? []) as string[],
+    type: (row.entry_type as JournalEntry['type']) ?? 'general',
+    important: (row.important as boolean) ?? false,
   }
 }
 
@@ -17,6 +19,8 @@ function toRow(data: Omit<JournalEntry, 'id'>) {
     note: data.note,
     symptoms: data.symptoms,
     photos: data.photos,
+    entry_type: data.type,
+    important: data.important,
   }
 }
 
