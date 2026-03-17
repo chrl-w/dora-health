@@ -3,6 +3,7 @@ import { Scale, Activity, Droplet, HeartPulse } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { MetricDetailSheet } from './MetricDetailSheet'
 import { getMetricReadings, addReading, deleteReading } from '../services/metricsService'
+import { getPet, updateMetricTargets } from '../services/petService'
 
 /* ─── Types ─── */
 
@@ -39,28 +40,9 @@ export const METRIC_CONFIGS: MetricConfig[] = [
   { id: 'heart_rate', name: 'Heart Rate', unit: 'bpm', trend: 'lower_better', Icon: HeartPulse },
 ]
 
-const METRICS_STORAGE_KEY = 'dora_metrics'
-
 /* ─── Helpers ─── */
 
-function loadMetrics(): HealthMetric[] {
-  try {
-    const raw = localStorage.getItem(METRICS_STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    /* fall back */
-  }
-  return METRIC_CONFIGS.map(({ id, name, unit, trend }) => ({
-    id,
-    name,
-    unit,
-    trend,
-    readings: [],
-  }))
-}
-
 function formatValue(value: number): string {
-  // Show up to 4 significant digits, strip trailing zeros
   return parseFloat(value.toPrecision(6)).toString()
 }
 
@@ -109,23 +91,19 @@ interface HealthMetricsProps {
 /* ─── Component ─── */
 
 export function HealthMetrics({ petId }: HealthMetricsProps) {
-  const [metrics, setMetrics] = useState<HealthMetric[]>(loadMetrics)
+  const [metrics, setMetrics] = useState<HealthMetric[]>(
+    METRIC_CONFIGS.map(({ id, name, unit, trend }) => ({ id, name, unit, trend, readings: [] }))
+  )
+  const [targets, setTargets] = useState<Record<string, number>>({})
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-
-  // Persist to localStorage only on the local path
-  useEffect(() => {
-    if (!petId) {
-      localStorage.setItem(METRICS_STORAGE_KEY, JSON.stringify(metrics))
-    }
-  }, [metrics, petId])
 
   // Load from Supabase when petId is available
   useEffect(() => {
     if (!petId) return
     setIsLoading(true)
-    getMetricReadings(petId)
-      .then((readingsByMetric) => {
+    Promise.all([getMetricReadings(petId), getPet(petId)])
+      .then(([readingsByMetric, petData]) => {
         setMetrics(
           METRIC_CONFIGS.map(({ id, name, unit, trend }) => ({
             id,
@@ -135,40 +113,37 @@ export function HealthMetrics({ petId }: HealthMetricsProps) {
             readings: readingsByMetric[id] ?? [],
           })),
         )
+        if (petData?.metricTargets) {
+          setTargets(petData.metricTargets)
+        }
       })
       .catch(console.error)
       .finally(() => setIsLoading(false))
   }, [petId])
 
-  async function handleAddReading(metricId: string, reading: MetricReading) {
-    if (petId) {
-      const saved = await addReading(petId, metricId, { value: reading.value, date: reading.date })
-      setMetrics((prev) =>
-        prev.map((m) =>
-          m.id === metricId
-            ? {
-                ...m,
-                readings: [...m.readings, saved].sort((a, b) =>
-                  b.date.localeCompare(a.date),
-                ),
-              }
-            : m,
-        ),
-      )
+  async function handleSetTarget(metricId: string, value: number | null) {
+    const updated = { ...targets }
+    if (value == null) {
+      delete updated[metricId]
     } else {
-      setMetrics((prev) =>
-        prev.map((m) =>
-          m.id === metricId
-            ? {
-                ...m,
-                readings: [...m.readings, reading].sort((a, b) =>
-                  b.date.localeCompare(a.date),
-                ),
-              }
-            : m,
-        ),
-      )
+      updated[metricId] = value
     }
+    setTargets(updated)
+    if (petId) {
+      await updateMetricTargets(petId, updated).catch(console.error)
+    }
+  }
+
+  async function handleAddReading(metricId: string, reading: MetricReading) {
+    if (!petId) return
+    const saved = await addReading(petId, metricId, { value: reading.value, date: reading.date })
+    setMetrics((prev) =>
+      prev.map((m) =>
+        m.id === metricId
+          ? { ...m, readings: [...m.readings, saved].sort((a, b) => b.date.localeCompare(a.date)) }
+          : m,
+      ),
+    )
   }
 
   async function handleDeleteReading(metricId: string, readingId: string) {
@@ -213,16 +188,11 @@ export function HealthMetrics({ petId }: HealthMetricsProps) {
 
           const latestReading =
             metric.readings.length > 0
-              ? [...metric.readings].sort((a, b) =>
-                  b.date.localeCompare(a.date),
-                )[0]
+              ? [...metric.readings].sort((a, b) => b.date.localeCompare(a.date))[0]
               : null
 
-          const changeInfo = getCardChangeInfo(
-            metric.readings,
-            metric.unit,
-            metric.trend,
-          )
+          const changeInfo = getCardChangeInfo(metric.readings, metric.unit, metric.trend)
+          const target = targets[metric.id]
 
           return (
             <button
@@ -251,18 +221,16 @@ export function HealthMetrics({ petId }: HealthMetricsProps) {
 
               <p
                 className="font-dm-sans font-normal text-[10px] mt-[3px] leading-tight"
-                style={{
-                  color: changeInfo
-                    ? changeInfo.color
-                    : '#A8A29E',
-                }}
+                style={{ color: changeInfo ? changeInfo.color : '#A8A29E' }}
               >
-                {changeInfo
-                  ? changeInfo.text
-                  : latestReading
-                    ? 'First reading'
-                    : '—'}
+                {changeInfo ? changeInfo.text : latestReading ? 'First reading' : '—'}
               </p>
+
+              {target != null && (
+                <p className="font-dm-sans font-normal text-[10px] mt-[2px] text-[#A8A29E] leading-tight">
+                  Target: {target} {metric.unit}
+                </p>
+              )}
             </button>
           )
         })}
@@ -276,6 +244,8 @@ export function HealthMetrics({ petId }: HealthMetricsProps) {
           config={selectedConfig}
           onAddReading={(reading) => handleAddReading(selectedMetric.id, reading)}
           onDeleteReading={(readingId) => handleDeleteReading(selectedMetric.id, readingId)}
+          target={targets[selectedMetric.id]}
+          onSetTarget={(value) => handleSetTarget(selectedMetric.id, value)}
         />
       )}
     </div>

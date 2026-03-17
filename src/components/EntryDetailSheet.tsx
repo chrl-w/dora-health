@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { X, BookOpen, Pencil, Calendar, Camera, Plus } from 'lucide-react'
 import type { JournalEntry } from './AddEntrySheet'
 import { SYMPTOMS, formatDateDisplay, todayISO } from './AddEntrySheet'
@@ -38,6 +38,7 @@ export function EntryDetailSheet({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const dragControls = useDragControls()
 
   // Reset state whenever the sheet opens with a new entry
   useEffect(() => {
@@ -159,9 +160,20 @@ export function EntryDetailSheet({
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              drag="y"
+              dragControls={dragControls}
+              dragListener={false}
+              dragConstraints={{ top: 0 }}
+              dragElastic={{ top: 0, bottom: 0.4 }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 120 || info.velocity.y > 400) handleClose()
+              }}
             >
               {/* Handle */}
-              <div className="flex justify-center pt-3 pb-2">
+              <div
+                className="flex justify-center pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing"
+                onPointerDown={(e) => dragControls.start(e)}
+              >
                 <div className="w-[36px] h-[4px] rounded-full bg-[#D4C8BA]" />
               </div>
 

@@ -4,20 +4,6 @@ import { AddEntrySheet, type JournalEntry, SYMPTOMS } from './AddEntrySheet'
 import { EntryDetailSheet } from './EntryDetailSheet'
 import { getJournalEntries, createEntry, updateEntry, deleteEntry } from '../services/journalService'
 
-/* ─── Storage ─── */
-
-const JOURNAL_STORAGE_KEY = 'dora_journal'
-
-function loadEntries(): JournalEntry[] {
-  try {
-    const raw = localStorage.getItem(JOURNAL_STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    /* fall back */
-  }
-  return []
-}
-
 /* ─── Helpers ─── */
 
 function formatRelativeDate(isoDate: string): string {
@@ -46,7 +32,7 @@ interface JournalProps {
 }
 
 export function Journal({ petName, petId }: JournalProps) {
-  const [entries, setEntries] = useState<JournalEntry[]>(loadEntries)
+  const [entries, setEntries] = useState<JournalEntry[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [showAll, setShowAll] = useState(false)
@@ -62,22 +48,6 @@ export function Journal({ petName, petId }: JournalProps) {
       .finally(() => setIsLoading(false))
   }, [petId])
 
-  // Persist to localStorage on the local path only
-  useEffect(() => {
-    if (petId) return
-    try {
-      localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(entries))
-    } catch {
-      /* localStorage quota exceeded — save entries without photos */
-      const stripped = entries.map((e) => ({ ...e, photos: [] }))
-      try {
-        localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(stripped))
-      } catch {
-        /* ignore if still fails */
-      }
-    }
-  }, [petId, entries])
-
   const sortedEntries = [...entries].sort((a, b) => b.date.localeCompare(a.date))
   const visibleEntries = showAll ? sortedEntries : sortedEntries.slice(0, 3)
 
@@ -90,8 +60,6 @@ export function Journal({ petName, petId }: JournalProps) {
       const { id: _id, ...data } = entry
       const created = await createEntry(petId, data)
       setEntries((prev) => [created, ...prev])
-    } else {
-      setEntries((prev) => [entry, ...prev])
     }
     setIsAdding(false)
   }
