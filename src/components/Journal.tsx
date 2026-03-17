@@ -58,7 +58,17 @@ export function Journal() {
   const petName = loadPetName()
 
   useEffect(() => {
-    localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(entries))
+    try {
+      localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(entries))
+    } catch {
+      /* localStorage quota exceeded — save entries without photos */
+      const stripped = entries.map((e) => ({ ...e, photos: [] }))
+      try {
+        localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(stripped))
+      } catch {
+        /* ignore if still fails */
+      }
+    }
   }, [entries])
 
   const sortedEntries = [...entries].sort((a, b) => b.date.localeCompare(a.date))
