@@ -8,7 +8,6 @@ import {
   createReminder,
   updateReminder,
   deleteReminder,
-  completeReminder,
 } from '../services/careRemindersService'
 import type { Medication, StoredDoseRecord } from '../services/medicationService'
 import type { CareReminderData, Reminder } from '../utils/reminderUtils'
@@ -101,10 +100,8 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
     // reminderId from the Reminder type is `care-${data.id}`, strip prefix
     const dataId = reminderId.replace(/^care-/, '')
     try {
-      await completeReminder(dataId, new Date())
-      // Refresh reminders so the completed one leaves the 7-day window if no longer due
-      const updated = await getCareReminders(petId!)
-      setCareReminders(updated)
+      await deleteReminder(dataId)
+      setCareReminders((prev) => prev.filter((r) => r.id !== dataId))
     } catch (err) {
       console.error('Failed to complete reminder:', err)
     }

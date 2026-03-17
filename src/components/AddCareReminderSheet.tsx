@@ -13,11 +13,13 @@ interface AddCareReminderSheetProps {
   existing?: CareReminderData | null
 }
 
+type FrequencyUnit = 'hours' | 'days' | 'weeks' | 'months'
+
 interface Draft {
   title: string
   notes: string
   frequencyAmount: number | ''
-  frequencyUnit: CareReminderData['frequencyUnit']
+  frequencyUnit: FrequencyUnit
   accentColour: string
 }
 
@@ -42,8 +44,8 @@ export function AddCareReminderSheet({ open, onClose, onSave, existing }: AddCar
         setDraft({
           title: existing.title,
           notes: existing.notes ?? '',
-          frequencyAmount: existing.frequencyAmount,
-          frequencyUnit: existing.frequencyUnit,
+          frequencyAmount: 1,
+          frequencyUnit: 'weeks',
           accentColour: existing.accentColour,
         })
       } else {
@@ -71,12 +73,12 @@ export function AddCareReminderSheet({ open, onClose, onSave, existing }: AddCar
     }
 
     onSave({
+      type: 'custom',
       title: draft.title.trim(),
       notes: draft.notes.trim() || undefined,
-      frequencyAmount: draft.frequencyAmount === '' ? 1 : (draft.frequencyAmount as number),
-      frequencyUnit: draft.frequencyUnit,
+      dueDate: '',
       accentColour: draft.accentColour,
-      lastCompleted: existing?.lastCompleted ?? null,
+      surfaceColour: '',
     })
     setDraft({ ...EMPTY_DRAFT })
     setErrors({})
@@ -184,7 +186,7 @@ export function AddCareReminderSheet({ open, onClose, onSave, existing }: AddCar
               <select
                 value={draft.frequencyUnit}
                 onChange={(e) =>
-                  setDraft((d) => ({ ...d, frequencyUnit: e.target.value as CareReminderData['frequencyUnit'] }))
+                  setDraft((d) => ({ ...d, frequencyUnit: e.target.value as FrequencyUnit }))
                 }
                 className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors appearance-none cursor-pointer"
               >
