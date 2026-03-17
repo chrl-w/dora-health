@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, BookOpen } from 'lucide-react'
 import { AddEntrySheet, type JournalEntry, SYMPTOMS } from './AddEntrySheet'
 import { EntryDetailSheet } from './EntryDetailSheet'
+import { getJournalEntries, createEntry, updateEntry, deleteEntry } from '../services/journalService'
 
 /* ─── Storage ─── */
 
@@ -41,15 +42,29 @@ function formatRelativeDate(isoDate: string): string {
 
 interface JournalProps {
   petName: string
+  petId: string | null
 }
 
-export function Journal({ petName }: JournalProps) {
+export function Journal({ petName, petId }: JournalProps) {
   const [entries, setEntries] = useState<JournalEntry[]>(loadEntries)
   const [isAdding, setIsAdding] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
+  // Load from Supabase when petId is set
   useEffect(() => {
+    if (!petId) return
+    setIsLoading(true)
+    getJournalEntries(petId)
+      .then(setEntries)
+      .catch(console.error)
+      .finally(() => setIsLoading(false))
+  }, [petId])
+
+  // Persist to localStorage on the local path only
+  useEffect(() => {
+    if (petId) return
     try {
       localStorage.setItem(JOURNAL_STORAGE_KEY, JSON.stringify(entries))
     } catch {
@@ -61,7 +76,7 @@ export function Journal({ petName }: JournalProps) {
         /* ignore if still fails */
       }
     }
-  }, [entries])
+  }, [petId, entries])
 
   const sortedEntries = [...entries].sort((a, b) => b.date.localeCompare(a.date))
   const visibleEntries = showAll ? sortedEntries : sortedEntries.slice(0, 3)
@@ -70,18 +85,31 @@ export function Journal({ petName }: JournalProps) {
     SYMPTOMS.map(({ emoji, label }) => [label, emoji]),
   )
 
-  function handleAdd(entry: JournalEntry) {
-    setEntries((prev) => [entry, ...prev])
+  async function handleAdd(entry: JournalEntry) {
+    if (petId) {
+      const { id: _id, ...data } = entry
+      const created = await createEntry(petId, data)
+      setEntries((prev) => [created, ...prev])
+    } else {
+      setEntries((prev) => [entry, ...prev])
+    }
     setIsAdding(false)
   }
 
-  function handleEditEntry(updated: JournalEntry) {
+  async function handleEditEntry(updated: JournalEntry) {
+    if (petId) {
+      const { id, ...data } = updated
+      await updateEntry(id, data)
+    }
     setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
     setSelectedEntry(updated)
   }
 
-  function handleDeleteEntry() {
+  async function handleDeleteEntry() {
     if (!selectedEntry) return
+    if (petId) {
+      await deleteEntry(selectedEntry.id)
+    }
     setEntries((prev) => prev.filter((e) => e.id !== selectedEntry.id))
     setSelectedEntry(null)
   }
@@ -104,7 +132,7 @@ export function Journal({ petName }: JournalProps) {
       </div>
 
       {/* Empty state */}
-      {entries.length === 0 && (
+      {entries.length === 0 && !isLoading && (
         <div className="mt-[14px] bg-[#FAF6F0] border border-dashed border-[#D4C8BA] rounded-[12px] px-[24px] py-[32px] flex flex-col items-center text-center gap-[8px]">
           <div className="w-[48px] h-[48px] rounded-full bg-[#F0E8DA] flex items-center justify-center mb-[4px]">
             <BookOpen className="w-[22px] h-[22px] text-[#C4623A]" />
