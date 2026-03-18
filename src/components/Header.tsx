@@ -101,6 +101,8 @@ export function Header({ petId, onProfileChange }: HeaderProps) {
           policyNumber: draft.insurance.policyNumber?.trim() ?? '',
           coverLevel: draft.insurance.coverLevel?.trim() ?? '',
           excessGbp: draft.insurance.excessGbp === '' ? 0 : Number(draft.insurance.excessGbp),
+          coverAmount: draft.insurance.coverAmount?.trim() || undefined,
+          copayPercent: draft.insurance.copayPercent?.trim() || undefined,
         }
       : null
 
@@ -375,6 +377,29 @@ export function Header({ petId, onProfileChange }: HeaderProps) {
                       className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] pl-[26px] pr-[10px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
                     />
                   </div>
+                </div>
+                <div>
+                  <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">Cover amount</label>
+                  <div className="relative">
+                    <span className="absolute left-[14px] top-1/2 -translate-y-1/2 font-dm-sans text-[15px] text-[#78716C]">£</span>
+                    <input
+                      type="text"
+                      value={draft.insurance?.coverAmount ?? ''}
+                      onChange={(e) => setDraft((d) => ({ ...d, insurance: { ...(d.insurance ?? EMPTY_INSURANCE), coverAmount: e.target.value } }))}
+                      placeholder="e.g. 15,000"
+                      className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] pl-[26px] pr-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">Co-pay <span className="font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={draft.insurance?.copayPercent ?? ''}
+                    onChange={(e) => setDraft((d) => ({ ...d, insurance: { ...(d.insurance ?? EMPTY_INSURANCE), copayPercent: e.target.value } }))}
+                    placeholder="e.g. 20%"
+                    className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+                  />
                 </div>
               </div>
             )}

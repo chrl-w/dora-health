@@ -2,7 +2,6 @@ import { useState, useRef } from 'react'
 import { BookOpen, Calendar, Camera, X, Plus, Stethoscope, Pill, Sparkles, Scissors, Star } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BottomSheet } from './BottomSheet'
-import { compressPhoto } from '../utils/imageUtils'
 
 /* ─── Types ─── */
 
@@ -131,9 +130,13 @@ export function AddEntrySheet({
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
     files.forEach((file) => {
-      compressPhoto(file).then((compressed) => {
-        setPhotos((prev) => [...prev, compressed])
-      })
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setPhotos((prev) => [...prev, e.target!.result as string])
+        }
+      }
+      reader.readAsDataURL(file)
     })
     e.target.value = ''
   }
