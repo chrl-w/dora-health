@@ -229,7 +229,7 @@ export function MetricDetailSheet({
                         type="date"
                         value={dateInput}
                         onChange={(e) => setDateInput(e.target.value)}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                        className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
                       />
                     </div>
                   </div>

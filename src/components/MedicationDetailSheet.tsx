@@ -28,7 +28,6 @@ interface MedicationDetailSheetProps {
 interface DoseRecord {
   date: Date
   id: string
-  doseSnapshot?: string
 }
 
 /* ─── Helpers ─── */
@@ -128,7 +127,7 @@ export function MedicationDetailSheet({
   useEffect(() => {
     if (!medication || !medicationId) return
     getDoseHistory(medicationId).then((records) => {
-      setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date), doseSnapshot: r.doseSnapshot })))
+      setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date) })))
     }).catch(console.error)
   }, [medication, medicationId])
 
@@ -144,16 +143,18 @@ export function MedicationDetailSheet({
     } else if (!isToday(selectedDate)) {
       doseDate.setHours(12, 0, 0, 0)
     }
-    const doseSnapshot = medication!.dose?.trim() || undefined
 
     if (!petId || !medicationId) return
     setIsLoading(true)
     try {
-      const record = await recordDose(petId, medicationId, doseDate, doseSnapshot)
-      setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date), doseSnapshot: record.doseSnapshot }, ...prev])
+      const record = await recordDose(petId, medicationId, doseDate)
+      setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date) }, ...prev])
+      onDoseHistoryChange?.()
       const now = new Date()
       setSelectedDate(now)
       setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+    } catch (err) {
+      console.error('Failed to record dose:', err)
     } finally {
       setIsLoading(false)
     }
@@ -379,7 +380,7 @@ export function MedicationDetailSheet({
                         >
                           <div className="flex-1 min-w-0">
                             <p className="font-dm-sans font-medium text-[13px] text-[#1C1917]">
-                              {record.doseSnapshot ? `${record.doseSnapshot} dose given` : 'Dose given'}
+                              Dose given
                             </p>
                             <p className="font-dm-sans font-normal text-[11px] text-[#78716C]">
                               {formatDate(record.date)} at{' '}
@@ -591,7 +592,7 @@ export function MedicationDetailSheet({
                           type="date"
                           value={editDraft.startDate}
                           onChange={(e) => setEditDraft((d) => ({ ...d, startDate: e.target.value }))}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                          className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
                         />
                       </div>
                     </div>
