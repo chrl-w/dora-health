@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { BookOpen, Calendar, Camera, X, Plus, ChevronDown } from 'lucide-react'
+import { BookOpen, Calendar, Camera, X, Plus, ChevronDown, Stethoscope, Pill, Sparkles, Scissors, Star } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BottomSheet } from './BottomSheet'
 import { compressPhoto } from '../utils/imageUtils'
@@ -12,6 +12,7 @@ export interface JournalEntry {
   id: string
   date: string // YYYY-MM-DD
   type: EntryType
+  important: boolean
   note: string
   symptoms: string[]
   photos: string[] // base64 data URLs
@@ -26,6 +27,14 @@ export const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   behaviour: 'Behaviour',
   grooming: 'Grooming',
 }
+
+export const ENTRY_TYPES: { type: EntryType; label: string; Icon: React.ElementType }[] = [
+  { type: 'general', label: 'General', Icon: BookOpen },
+  { type: 'vet_visit', label: 'Vet visit', Icon: Stethoscope },
+  { type: 'medication_change', label: 'Medication change', Icon: Pill },
+  { type: 'behaviour', label: 'Behaviour', Icon: Sparkles },
+  { type: 'grooming', label: 'Grooming', Icon: Scissors },
+]
 
 export const SYMPTOMS: { emoji: string; label: string }[] = [
   { emoji: '🤢', label: 'Vomiting' },
@@ -73,6 +82,7 @@ export function AddEntrySheet({
 }: AddEntrySheetProps) {
   const [date, setDate] = useState(todayISO)
   const [entryType, setEntryType] = useState<EntryType>('general')
+  const [important, setImportant] = useState(false)
   const [note, setNote] = useState('')
   const [symptoms, setSymptoms] = useState<string[]>([])
   const [customSymptoms, setCustomSymptoms] = useState<string[]>([])
@@ -83,7 +93,7 @@ export function AddEntrySheet({
   const photoInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Auto-expand textarea when note changes
+  // Auto-expand textarea on note change
   useEffect(() => {
     const el = textareaRef.current
     if (el) {
@@ -96,35 +106,31 @@ export function AddEntrySheet({
   useEffect(() => {
     if (open) {
       const el = textareaRef.current
-      if (el) {
-        el.style.height = 'auto'
-      }
+      if (el) el.style.height = 'auto'
     }
   }, [open])
 
-  function handleClose() {
+  function resetForm() {
     setDate(todayISO())
     setEntryType('general')
+    setImportant(false)
     setNote('')
     setSymptoms([])
     setCustomSymptoms([])
     setShowAddSymptom(false)
     setCustomInput('')
     setPhotos([])
+  }
+
+  function handleClose() {
+    resetForm()
     onClose()
   }
 
   function handleAdd() {
     if (!note.trim()) return
-    onAdd({ id: `${Date.now()}`, date, type: entryType, note: note.trim(), symptoms, photos })
-    setDate(todayISO())
-    setEntryType('general')
-    setNote('')
-    setSymptoms([])
-    setCustomSymptoms([])
-    setShowAddSymptom(false)
-    setCustomInput('')
-    setPhotos([])
+    onAdd({ id: `${Date.now()}`, date, type: entryType, important, note: note.trim(), symptoms, photos })
+    resetForm()
   }
 
   function toggleSymptom(label: string) {
@@ -175,9 +181,22 @@ export function AddEntrySheet({
     </div>
   )
 
+  const starToggle = (
+    <button
+      type="button"
+      onClick={() => setImportant((v) => !v)}
+      className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors"
+      aria-label={important ? 'Unmark as important' : 'Mark as important'}
+    >
+      <Star
+        className={`w-[14px] h-[14px] transition-colors ${important ? 'fill-[#C4623A] text-[#C4623A]' : 'text-[#78716C]'}`}
+      />
+    </button>
+  )
+
   return (
     <>
-      <BottomSheet open={open} onClose={handleClose} title="New entry" titleIcon={titleIcon}>
+      <BottomSheet open={open} onClose={handleClose} title="New entry" titleIcon={titleIcon} headerAction={starToggle}>
         {/* Date */}
         <div className="mb-[16px]">
           <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
@@ -192,7 +211,7 @@ export function AddEntrySheet({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+              className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
             />
           </div>
         </div>
@@ -208,8 +227,8 @@ export function AddEntrySheet({
               onChange={(e) => setEntryType(e.target.value as EntryType)}
               className="w-full appearance-none bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors cursor-pointer"
             >
-              {(Object.entries(ENTRY_TYPE_LABELS) as [EntryType, string][]).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {ENTRY_TYPES.map(({ type, label }) => (
+                <option key={type} value={type}>{label}</option>
               ))}
             </select>
             <ChevronDown className="absolute right-[14px] top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-[#78716C] pointer-events-none" />

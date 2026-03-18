@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, BookOpen, SlidersHorizontal, Star, X } from 'lucide-react'
-import { AddEntrySheet, type JournalEntry, type EntryType, SYMPTOMS, ENTRY_TYPE_LABELS } from './AddEntrySheet'
+import { Plus, BookOpen, SlidersHorizontal, Star, X, Camera } from 'lucide-react'
+import { AddEntrySheet, type JournalEntry, type EntryType, SYMPTOMS, ENTRY_TYPES, ENTRY_TYPE_LABELS } from './AddEntrySheet'
 import { EntryDetailSheet } from './EntryDetailSheet'
 import { getJournalEntries, createEntry, updateEntry, deleteEntry } from '../services/journalService'
 
@@ -33,7 +33,7 @@ function startOfWeekISO(): string {
   const now = new Date()
   const day = now.getDay()
   const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-  const monday = new Date(now.setDate(diff))
+  const monday = new Date(new Date().setDate(diff))
   return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
 }
 
@@ -74,11 +74,10 @@ export function Journal({ petName, petId }: JournalProps) {
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       const target = e.target as Node
-      if (
-        typePopoverRef.current && !typePopoverRef.current.contains(target) &&
-        symptomsPopoverRef.current && !symptomsPopoverRef.current.contains(target) &&
-        datePopoverRef.current && !datePopoverRef.current.contains(target)
-      ) {
+      const insideType = typePopoverRef.current?.contains(target)
+      const insideSymptoms = symptomsPopoverRef.current?.contains(target)
+      const insideDate = datePopoverRef.current?.contains(target)
+      if (!insideType && !insideSymptoms && !insideDate) {
         setOpenPopover(null)
       }
     }
@@ -103,6 +102,7 @@ export function Journal({ petName, petId }: JournalProps) {
 
   // Apply filters
   const filteredEntries = sortedEntries.filter((entry) => {
+    if (importantOnly && !entry.important) return false
     if (filterTypes.length > 0 && !filterTypes.includes(entry.type ?? 'general')) return false
     if (filterSymptoms.length > 0 && !filterSymptoms.some((s) => entry.symptoms.includes(s))) return false
     if (filterDate === 'today' && entry.date !== todayISO()) return false
@@ -209,19 +209,20 @@ export function Journal({ petName, petId }: JournalProps) {
               Type{filterTypes.length > 0 ? ` · ${filterTypes.length}` : ' ▾'}
             </button>
             {openPopover === 'type' && (
-              <div className="absolute top-full left-0 mt-[6px] z-10 bg-[#FAF6F0] border border-[#E4D9CC] rounded-[12px] shadow-md p-[12px] min-w-[180px]">
-                {(Object.entries(ENTRY_TYPE_LABELS) as [EntryType, string][]).map(([value, label]) => (
-                  <label key={value} className="flex items-center gap-[8px] py-[6px] cursor-pointer">
+              <div className="absolute top-full left-0 mt-[6px] z-10 bg-[#FAF6F0] border border-[#E4D9CC] rounded-[12px] shadow-md p-[12px] min-w-[200px]">
+                {ENTRY_TYPES.map(({ type, label, Icon }) => (
+                  <label key={type} className="flex items-center gap-[8px] py-[6px] cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={filterTypes.includes(value)}
+                      checked={filterTypes.includes(type)}
                       onChange={() =>
                         setFilterTypes((prev) =>
-                          prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value],
+                          prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
                         )
                       }
                       className="accent-[#C4623A]"
                     />
+                    <Icon className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
                     <span className="font-dm-sans text-[13px] text-[#1C1917]">{label}</span>
                   </label>
                 ))}
@@ -308,7 +309,7 @@ export function Journal({ petName, petId }: JournalProps) {
                 : 'border-[#D4C8BA] text-[#78716C] bg-[#FAF6F0]'
             }`}
           >
-            <Star className="w-[11px] h-[11px]" />
+            <Star className={`w-[11px] h-[11px] ${importantOnly ? 'fill-white' : ''}`} />
           </button>
 
           {/* Clear */}
@@ -347,14 +348,16 @@ export function Journal({ petName, petId }: JournalProps) {
         </div>
       )}
 
-      {/* No results from filters */}
+      {/* No results from active filters */}
       {entries.length > 0 && filteredEntries.length === 0 && (
         <div className="mt-[14px] bg-[#FAF6F0] border border-dashed border-[#D4C8BA] rounded-[12px] px-[24px] py-[24px] flex flex-col items-center text-center gap-[6px]">
-          <p className="font-dm-sans font-semibold text-[14px] text-[#1C1917]">No matching entries</p>
+          <p className="font-dm-sans font-semibold text-[14px] text-[#1C1917]">
+            No entries match your filters
+          </p>
           <button
             type="button"
             onClick={clearFilters}
-            className="font-dm-sans text-[13px] text-[#C4623A] hover:text-[#A8502E] transition-colors"
+            className="font-dm-sans font-medium text-[13px] text-[#C4623A] hover:text-[#A8502E] transition-colors"
           >
             Clear filters
           </button>
@@ -366,38 +369,60 @@ export function Journal({ petName, petId }: JournalProps) {
         <>
           <div className="flex flex-col gap-[10px] mt-[14px]">
             {visibleEntries.map((entry) => {
-              const firstSymptomEmoji =
-                entry.symptoms.length > 0 ? symptomEmojiMap[entry.symptoms[0]] : null
+              const hasSymptoms = entry.symptoms.length > 0
+              const hasPhotos = (entry.photos ?? []).length > 0
+              const firstSymptomEmoji = hasSymptoms ? symptomEmojiMap[entry.symptoms[0]] : null
+              const visibleSymptoms = entry.symptoms.slice(0, 3)
+              const overflowCount = entry.symptoms.length - 3
+              const entryTypeMeta = entry.type && entry.type !== 'general'
+                ? ENTRY_TYPES.find((t) => t.type === entry.type)
+                : null
 
               return (
                 <button
                   key={entry.id}
                   type="button"
                   onClick={() => setSelectedEntry(entry)}
-                  className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] p-[16px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] text-left"
+                  className={`w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] p-[16px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] text-left${entry.important ? ' border-l-2 border-l-[#C4623A]' : ''}`}
                 >
                   <div className="flex items-start justify-between gap-[12px]">
                     <div className="flex-1 min-w-0">
-                      <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mb-[4px]">
-                        {formatRelativeDate(entry.date)}
-                        {entry.type && entry.type !== 'general' && (
-                          <span className="ml-[6px] text-[#A8A29E]">· {ENTRY_TYPE_LABELS[entry.type]}</span>
+                      <div className="flex items-center gap-[6px] mb-[4px] flex-wrap">
+                        <p className="font-dm-sans font-normal text-[12px] text-[#78716C]">
+                          {formatRelativeDate(entry.date)}
+                        </p>
+                        {entryTypeMeta && (
+                          <span className="inline-flex items-center gap-[3px] bg-[#F0E8DA] rounded-full px-[8px] py-[1px] font-dm-sans font-normal text-[11px] text-[#78716C]">
+                            <entryTypeMeta.Icon className="w-[10px] h-[10px]" />
+                            {ENTRY_TYPE_LABELS[entry.type]}
+                          </span>
                         )}
-                      </p>
+                        {entry.important && (
+                          <Star className="w-[12px] h-[12px] fill-[#C4623A] text-[#C4623A] shrink-0" />
+                        )}
+                      </div>
                       <p className="font-dm-sans font-normal text-[15px] text-[#1C1917] line-clamp-2">
                         {entry.note}
                       </p>
                     </div>
-                    {firstSymptomEmoji && (
+                    {hasPhotos && hasSymptoms ? (
+                      <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0 font-dm-sans text-[12px] text-[#78716C]">
+                        📷 {(entry.photos ?? []).length}
+                      </div>
+                    ) : hasPhotos ? (
+                      <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0">
+                        <Camera className="w-[14px] h-[14px] text-[#78716C]" />
+                      </div>
+                    ) : firstSymptomEmoji ? (
                       <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0 text-[16px]">
                         {firstSymptomEmoji}
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
-                  {entry.symptoms.length > 0 && (
+                  {hasSymptoms && (
                     <div className="flex flex-wrap gap-[6px] mt-[10px]">
-                      {entry.symptoms.map((s) => (
+                      {visibleSymptoms.map((s) => (
                         <span
                           key={s}
                           className="bg-[#FDF0EB] rounded-full px-[10px] py-[3px] font-dm-sans font-normal text-[12px] text-[#C4623A]"
@@ -405,6 +430,11 @@ export function Journal({ petName, petId }: JournalProps) {
                           {s}
                         </span>
                       ))}
+                      {overflowCount > 0 && (
+                        <span className="bg-[#E4D9CC] rounded-full px-[10px] py-[3px] font-dm-sans text-[12px] text-[#78716C]">
+                          +{overflowCount}
+                        </span>
+                      )}
                     </div>
                   )}
                 </button>

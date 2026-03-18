@@ -28,7 +28,6 @@ interface MedicationDetailSheetProps {
 interface DoseRecord {
   date: Date
   id: string
-  doseSnapshot?: string
 }
 
 /* ─── Helpers ─── */
@@ -128,7 +127,7 @@ export function MedicationDetailSheet({
   useEffect(() => {
     if (!medication || !medicationId) return
     getDoseHistory(medicationId).then((records) => {
-      setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date), doseSnapshot: r.doseSnapshot })))
+      setDoseHistory(records.map((r) => ({ id: r.id, date: new Date(r.date) })))
     }).catch(console.error)
   }, [medication, medicationId])
 
@@ -144,16 +143,18 @@ export function MedicationDetailSheet({
     } else if (!isToday(selectedDate)) {
       doseDate.setHours(12, 0, 0, 0)
     }
-    const doseSnapshot = medication!.dose?.trim() || undefined
 
     if (!petId || !medicationId) return
     setIsLoading(true)
     try {
-      const record = await recordDose(petId, medicationId, doseDate, doseSnapshot)
-      setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date), doseSnapshot: record.doseSnapshot }, ...prev])
+      const record = await recordDose(petId, medicationId, doseDate)
+      setDoseHistory((prev) => [{ id: record.id, date: new Date(record.date) }, ...prev])
+      onDoseHistoryChange?.()
       const now = new Date()
       setSelectedDate(now)
       setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+    } catch (err) {
+      console.error('Failed to record dose:', err)
     } finally {
       setIsLoading(false)
     }
@@ -283,74 +284,72 @@ export function MedicationDetailSheet({
                   <h3 className="font-dm-sans font-semibold text-[14px] text-[#1C1917] mb-[10px]">
                     Record dose
                   </h3>
-                  <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px]">
-                    <div className="flex items-center justify-between gap-[8px]">
-                      <div className="flex items-center gap-[4px]">
-                        {/* Date picker */}
+                  <div className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px] flex flex-col gap-[10px]">
+                    <div className="flex items-center gap-[4px]">
+                      {/* Date picker */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => dateInputRef.current?.click()}
+                          className="flex items-center gap-[6px] rounded-[8px] px-[8px] py-[5px] hover:bg-[#E4D9CC] active:bg-[#DDD0C0] transition-colors"
+                        >
+                          <Calendar className="w-[15px] h-[15px] text-[#78716C] shrink-0" />
+                          <span className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
+                            {formatChipDate(selectedDate)}
+                          </span>
+                          <ChevronDown className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
+                        </button>
+                        <input
+                          ref={dateInputRef}
+                          type="date"
+                          max={new Date().toISOString().split('T')[0]}
+                          value={selectedDate.toLocaleDateString('en-CA')}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              const [y, m, d] = e.target.value.split('-').map(Number)
+                              setSelectedDate(new Date(y, m - 1, d))
+                            }
+                          }}
+                          className="absolute opacity-0 pointer-events-none w-0 h-0"
+                        />
+                      </div>
+
+                      {/* Time picker — only for hours/days frequency */}
+                      {showTimePicker && (
                         <div className="relative">
                           <button
                             type="button"
-                            onClick={() => dateInputRef.current?.click()}
+                            onClick={() => timeInputRef.current?.click()}
                             className="flex items-center gap-[6px] rounded-[8px] px-[8px] py-[5px] hover:bg-[#E4D9CC] active:bg-[#DDD0C0] transition-colors"
                           >
-                            <Calendar className="w-[15px] h-[15px] text-[#78716C] shrink-0" />
+                            <Clock3 className="w-[14px] h-[14px] text-[#78716C] shrink-0" />
                             <span className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
-                              {formatChipDate(selectedDate)}
+                              {selectedTime}
                             </span>
                             <ChevronDown className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
                           </button>
                           <input
-                            ref={dateInputRef}
-                            type="date"
-                            max={new Date().toISOString().split('T')[0]}
-                            value={selectedDate.toLocaleDateString('en-CA')}
+                            ref={timeInputRef}
+                            type="time"
+                            value={selectedTime}
                             onChange={(e) => {
-                              if (e.target.value) {
-                                const [y, m, d] = e.target.value.split('-').map(Number)
-                                setSelectedDate(new Date(y, m - 1, d))
-                              }
+                              if (e.target.value) setSelectedTime(e.target.value)
                             }}
                             className="absolute opacity-0 pointer-events-none w-0 h-0"
                           />
                         </div>
-
-                        {/* Time picker — only for hours/days frequency */}
-                        {showTimePicker && (
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() => timeInputRef.current?.click()}
-                              className="flex items-center gap-[6px] rounded-[8px] px-[8px] py-[5px] hover:bg-[#E4D9CC] active:bg-[#DDD0C0] transition-colors"
-                            >
-                              <Clock3 className="w-[14px] h-[14px] text-[#78716C] shrink-0" />
-                              <span className="font-dm-sans font-medium text-[14px] text-[#1C1917]">
-                                {selectedTime}
-                              </span>
-                              <ChevronDown className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
-                            </button>
-                            <input
-                              ref={timeInputRef}
-                              type="time"
-                              value={selectedTime}
-                              onChange={(e) => {
-                                if (e.target.value) setSelectedTime(e.target.value)
-                              }}
-                              className="absolute opacity-0 pointer-events-none w-0 h-0"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={handleRecordDose}
-                        disabled={isLoading}
-                        className="flex items-center gap-[6px] bg-[#C4623A] rounded-[8px] px-[14px] py-[8px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all disabled:opacity-50 shrink-0"
-                      >
-                        <Check className="w-[14px] h-[14px]" />
-                        Mark as given
-                      </button>
+                      )}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRecordDose}
+                      disabled={isLoading}
+                      className="w-full flex items-center justify-center gap-[6px] bg-[#C4623A] rounded-[8px] px-[14px] py-[8px] font-dm-sans font-semibold text-[13px] text-white hover:bg-[#A8502E] active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      <Check className="w-[14px] h-[14px]" />
+                      Mark as given
+                    </button>
                   </div>
                 </div>
               )}
@@ -379,12 +378,9 @@ export function MedicationDetailSheet({
                           key={record.id}
                           className="bg-[#F0E8DA] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] flex items-center gap-[10px]"
                         >
-                          <div className="w-[28px] h-[28px] rounded-full bg-[#7D9E7E]/20 flex items-center justify-center shrink-0">
-                            <Check className="w-[14px] h-[14px] text-[#7D9E7E]" />
-                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-dm-sans font-medium text-[13px] text-[#1C1917]">
-                              {record.doseSnapshot ? `${record.doseSnapshot} dose given` : 'Dose given'}
+                              Dose given
                             </p>
                             <p className="font-dm-sans font-normal text-[11px] text-[#78716C]">
                               {formatDate(record.date)} at{' '}
@@ -596,7 +592,7 @@ export function MedicationDetailSheet({
                           type="date"
                           value={editDraft.startDate}
                           onChange={(e) => setEditDraft((d) => ({ ...d, startDate: e.target.value }))}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                          className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
                         />
                       </div>
                     </div>

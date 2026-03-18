@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, BookOpen, Pencil, Calendar, Camera, Plus, ChevronDown } from 'lucide-react'
-import type { JournalEntry, EntryType } from './AddEntrySheet'
-import { SYMPTOMS, ENTRY_TYPE_LABELS, formatDateDisplay, todayISO } from './AddEntrySheet'
+import { X, BookOpen, Pencil, Calendar, Camera, Plus, Star, ChevronDown } from 'lucide-react'
+import type { JournalEntry } from './AddEntrySheet'
+import { SYMPTOMS, ENTRY_TYPES, ENTRY_TYPE_LABELS, formatDateDisplay, todayISO } from './AddEntrySheet'
 import { compressPhoto } from '../utils/imageUtils'
 
 const BUILTIN_SYMPTOM_LABELS = new Set(SYMPTOMS.map((s) => s.label))
@@ -30,7 +30,8 @@ export function EntryDetailSheet({
 }: EntryDetailSheetProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editDate, setEditDate] = useState('')
-  const [editType, setEditType] = useState<EntryType>('general')
+  const [editType, setEditType] = useState<JournalEntry['type']>('general')
+  const [editImportant, setEditImportant] = useState(false)
   const [editNote, setEditNote] = useState('')
   const [editSymptoms, setEditSymptoms] = useState<string[]>([])
   const [editCustomSymptoms, setEditCustomSymptoms] = useState<string[]>([])
@@ -48,6 +49,7 @@ export function EntryDetailSheet({
     if (open && entry) {
       setEditDate(entry.date)
       setEditType(entry.type ?? 'general')
+      setEditImportant(entry.important ?? false)
       setEditNote(entry.note)
       setEditSymptoms([...entry.symptoms])
       setEditCustomSymptoms(entry.symptoms.filter((s) => !BUILTIN_SYMPTOM_LABELS.has(s)))
@@ -93,10 +95,10 @@ export function EntryDetailSheet({
   useEffect(() => {
     if (!isEditing || !editNote.trim()) return
     const timer = setTimeout(() => {
-      onEdit({ ...entry!, date: editDate, type: editType, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
+      onEdit({ ...entry!, date: editDate, type: editType, important: editImportant, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
     }, 600)
     return () => clearTimeout(timer)
-  }, [editNote, editSymptoms, editPhotos, editDate, editType, isEditing])
+  }, [editNote, editSymptoms, editPhotos, editDate, editType, editImportant, isEditing])
 
   if (!entry) return null
 
@@ -105,6 +107,12 @@ export function EntryDetailSheet({
     setShowDeleteConfirm(false)
     setLightboxSrc(null)
     onClose()
+  }
+
+  function handleToggleImportant() {
+    const updated = { ...entry!, important: !editImportant }
+    setEditImportant(!editImportant)
+    onEdit(updated)
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -216,14 +224,26 @@ export function EntryDetailSheet({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors shrink-0"
-                  aria-label="Close"
-                  onClick={handleClose}
-                >
-                  <X className="w-[14px] h-[14px] text-[#78716C]" />
-                </button>
+                <div className="flex items-center gap-[8px]">
+                  <button
+                    type="button"
+                    onClick={handleToggleImportant}
+                    className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors shrink-0"
+                    aria-label={editImportant ? 'Unmark as important' : 'Mark as important'}
+                  >
+                    <Star
+                      className={`w-[14px] h-[14px] transition-colors ${editImportant ? 'fill-[#C4623A] text-[#C4623A]' : 'text-[#78716C]'}`}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    className="w-[30px] h-[30px] rounded-full border border-[#E4D9CC] bg-[#FAF6F0] flex items-center justify-center hover:bg-[#F0E8DA] transition-colors shrink-0"
+                    aria-label="Close"
+                    onClick={handleClose}
+                  >
+                    <X className="w-[14px] h-[14px] text-[#78716C]" />
+                  </button>
+                </div>
               </div>
 
               {/* Scrollable body */}
@@ -269,7 +289,7 @@ export function EntryDetailSheet({
                               type="date"
                               value={editDate}
                               onChange={(e) => setEditDate(e.target.value || todayISO())}
-                              className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                              className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
                             />
                           </div>
                         </div>
@@ -282,11 +302,11 @@ export function EntryDetailSheet({
                           <div className="relative">
                             <select
                               value={editType}
-                              onChange={(e) => setEditType(e.target.value as EntryType)}
+                              onChange={(e) => setEditType(e.target.value as JournalEntry['type'])}
                               className="w-full appearance-none bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors cursor-pointer"
                             >
-                              {(Object.entries(ENTRY_TYPE_LABELS) as [EntryType, string][]).map(([value, label]) => (
-                                <option key={value} value={value}>{label}</option>
+                              {ENTRY_TYPES.map(({ type, label }) => (
+                                <option key={type} value={type}>{label}</option>
                               ))}
                             </select>
                             <ChevronDown className="absolute right-[14px] top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-[#78716C] pointer-events-none" />
@@ -462,6 +482,19 @@ export function EntryDetailSheet({
                           className="relative bg-[#F0E8DA] border border-[#E4D9CC] rounded-[12px] p-[14px] cursor-pointer hover:border-[#D4C8BA] active:scale-[0.99] transition-all"
                         >
                           <Pencil className="absolute top-[12px] right-[12px] w-[12px] h-[12px] text-[#78716C]" />
+
+                          {/* Entry type badge (non-general only) */}
+                          {entry.type && entry.type !== 'general' && (() => {
+                            const et = ENTRY_TYPES.find((t) => t.type === entry.type)
+                            return et ? (
+                              <div className="flex items-center gap-[5px] mb-[10px]">
+                                <span className="inline-flex items-center gap-[4px] bg-[#FAF6F0] rounded-full px-[10px] py-[3px] font-dm-sans font-normal text-[12px] text-[#78716C]">
+                                  <et.Icon className="w-[11px] h-[11px]" />
+                                  {ENTRY_TYPE_LABELS[entry.type]}
+                                </span>
+                              </div>
+                            ) : null
+                          })()}
 
                           {/* Note */}
                           <p className="font-dm-sans font-medium text-[12px] text-[#78716C] mb-[4px]">

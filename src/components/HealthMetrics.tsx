@@ -102,8 +102,9 @@ export function HealthMetrics({ petId }: HealthMetricsProps) {
   useEffect(() => {
     if (!petId) return
     setIsLoading(true)
-    Promise.all([getMetricReadings(petId), getPet(petId)])
-      .then(([readingsByMetric, petData]) => {
+    // Load readings and pet targets independently so a failure in one doesn't block the other
+    getMetricReadings(petId)
+      .then((readingsByMetric) => {
         setMetrics(
           METRIC_CONFIGS.map(({ id, name, unit, trend }) => ({
             id,
@@ -113,12 +114,16 @@ export function HealthMetrics({ petId }: HealthMetricsProps) {
             readings: readingsByMetric[id] ?? [],
           })),
         )
+      })
+      .catch(console.error)
+      .finally(() => setIsLoading(false))
+    getPet(petId)
+      .then((petData) => {
         if (petData?.metricTargets) {
           setTargets(petData.metricTargets)
         }
       })
       .catch(console.error)
-      .finally(() => setIsLoading(false))
   }, [petId])
 
   async function handleSetTarget(metricId: string, value: number | null) {
@@ -136,14 +141,18 @@ export function HealthMetrics({ petId }: HealthMetricsProps) {
 
   async function handleAddReading(metricId: string, reading: MetricReading) {
     if (!petId) return
-    const saved = await addReading(petId, metricId, { value: reading.value, date: reading.date })
-    setMetrics((prev) =>
-      prev.map((m) =>
-        m.id === metricId
-          ? { ...m, readings: [...m.readings, saved].sort((a, b) => b.date.localeCompare(a.date)) }
-          : m,
-      ),
-    )
+    try {
+      const saved = await addReading(petId, metricId, { value: reading.value, date: reading.date })
+      setMetrics((prev) =>
+        prev.map((m) =>
+          m.id === metricId
+            ? { ...m, readings: [...m.readings, saved].sort((a, b) => b.date.localeCompare(a.date)) }
+            : m,
+        ),
+      )
+    } catch (err) {
+      console.error('Failed to save reading:', err)
+    }
   }
 
   async function handleDeleteReading(metricId: string, readingId: string) {

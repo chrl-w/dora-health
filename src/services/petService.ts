@@ -5,6 +5,8 @@ export interface PetInsurance {
   policyNumber: string
   coverLevel: string
   excessGbp: number | ''
+  coverAmount?: string
+  copayPercent?: string
 }
 
 export interface PetData {
