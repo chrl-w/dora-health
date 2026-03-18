@@ -6,15 +6,18 @@ import { getJournalEntries, createEntry, updateEntry, deleteEntry } from '../ser
 
 /* ─── Helpers ─── */
 
-function formatRelativeDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
+function formatRelativeDate(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp)
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const entryDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   const diffDays = Math.round(
-    (today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+    (today.getTime() - entryDay.getTime()) / (1000 * 60 * 60 * 24),
   )
-  if (diffDays === 0) return 'Today'
+  if (diffDays === 0) {
+    const time = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    return `Today at ${time}`
+  }
   if (diffDays === 1) return 'Yesterday'
   if (diffDays > 0) return `${diffDays} days ago`
   return date.toLocaleDateString('en-GB', {
@@ -95,7 +98,7 @@ export function Journal({ petName, petId }: JournalProps) {
       .finally(() => setIsLoading(false))
   }, [petId])
 
-  const sortedEntries = [...entries].sort((a, b) => b.date.localeCompare(a.date))
+  const sortedEntries = [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
   // All unique symptoms across entries
   const allSymptoms = Array.from(new Set(sortedEntries.flatMap((e) => e.symptoms)))
@@ -105,9 +108,9 @@ export function Journal({ petName, petId }: JournalProps) {
     if (importantOnly && !entry.important) return false
     if (filterTypes.length > 0 && !filterTypes.includes(entry.type ?? 'general')) return false
     if (filterSymptoms.length > 0 && !filterSymptoms.some((s) => entry.symptoms.includes(s))) return false
-    if (filterDate === 'today' && entry.date !== todayISO()) return false
-    if (filterDate === 'week' && entry.date < startOfWeekISO()) return false
-    if (filterDate === 'month' && entry.date < startOfMonthISO()) return false
+    if (filterDate === 'today' && entry.createdAt.split('T')[0] !== todayISO()) return false
+    if (filterDate === 'week' && entry.createdAt.split('T')[0] < startOfWeekISO()) return false
+    if (filterDate === 'month' && entry.createdAt.split('T')[0] < startOfMonthISO()) return false
     return true
   })
 
@@ -389,7 +392,7 @@ export function Journal({ petName, petId }: JournalProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-[6px] mb-[4px] flex-wrap">
                         <p className="font-dm-sans font-normal text-[12px] text-[#78716C]">
-                          {formatRelativeDate(entry.date)}
+                          {formatRelativeDate(entry.createdAt)}
                         </p>
                         {entryTypeMeta && (
                           <span className="inline-flex items-center gap-[3px] bg-[#F0E8DA] rounded-full px-[8px] py-[1px] font-dm-sans font-normal text-[11px] text-[#78716C]">

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, BookOpen, Pencil, Calendar, Camera, Plus, Star, ChevronDown } from 'lucide-react'
+import { X, BookOpen, Pencil, Camera, Plus, Star, ChevronDown } from 'lucide-react'
 import type { JournalEntry } from './AddEntrySheet'
-import { SYMPTOMS, ENTRY_TYPES, ENTRY_TYPE_LABELS, formatDateDisplay, todayISO } from './AddEntrySheet'
+import { SYMPTOMS, ENTRY_TYPES, ENTRY_TYPE_LABELS, formatDateDisplay } from './AddEntrySheet'
 import { compressPhoto } from '../utils/imageUtils'
 
 const BUILTIN_SYMPTOM_LABELS = new Set(SYMPTOMS.map((s) => s.label))
@@ -29,7 +29,6 @@ export function EntryDetailSheet({
   onDelete,
 }: EntryDetailSheetProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [editDate, setEditDate] = useState('')
   const [editType, setEditType] = useState<JournalEntry['type']>('general')
   const [editImportant, setEditImportant] = useState(false)
   const [editNote, setEditNote] = useState('')
@@ -47,7 +46,6 @@ export function EntryDetailSheet({
   // Reset state whenever the sheet opens with a new entry
   useEffect(() => {
     if (open && entry) {
-      setEditDate(entry.date)
       setEditType(entry.type ?? 'general')
       setEditImportant(entry.important ?? false)
       setEditNote(entry.note)
@@ -95,10 +93,10 @@ export function EntryDetailSheet({
   useEffect(() => {
     if (!isEditing || !editNote.trim()) return
     const timer = setTimeout(() => {
-      onEdit({ ...entry!, date: editDate, type: editType, important: editImportant, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
+      onEdit({ ...entry!, type: editType, important: editImportant, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
     }, 600)
     return () => clearTimeout(timer)
-  }, [editNote, editSymptoms, editPhotos, editDate, editType, editImportant, isEditing])
+  }, [editNote, editSymptoms, editPhotos, editType, editImportant, isEditing])
 
   if (!entry) return null
 
@@ -220,7 +218,7 @@ export function EntryDetailSheet({
                       Journal entry
                     </h2>
                     <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[1px]">
-                      {formatDateDisplay(entry.date)}
+                      {formatDateDisplay(entry.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -275,25 +273,6 @@ export function EntryDetailSheet({
                         transition={{ duration: 0.15 }}
                         className="flex flex-col gap-[12px]"
                       >
-                        {/* Date */}
-                        <div>
-                          <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
-                            Date
-                          </label>
-                          <div className="relative">
-                            <div className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] flex items-center justify-between">
-                              <span>{formatDateDisplay(editDate)}</span>
-                              <Calendar className="w-[16px] h-[16px] text-[#78716C] shrink-0" />
-                            </div>
-                            <input
-                              type="date"
-                              value={editDate}
-                              onChange={(e) => setEditDate(e.target.value || todayISO())}
-                              className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
-                            />
-                          </div>
-                        </div>
-
                         {/* Entry type */}
                         <div>
                           <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
@@ -312,6 +291,7 @@ export function EntryDetailSheet({
                             <ChevronDown className="absolute right-[14px] top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-[#78716C] pointer-events-none" />
                           </div>
                         </div>
+
 
                         {/* Note */}
                         <div>

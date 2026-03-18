@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { BookOpen, Calendar, Camera, X, Plus, ChevronDown, Stethoscope, Pill, Sparkles, Scissors, Star } from 'lucide-react'
+import { BookOpen, Camera, X, Plus, ChevronDown, Stethoscope, Pill, Sparkles, Scissors, Star } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BottomSheet } from './BottomSheet'
 import { compressPhoto } from '../utils/imageUtils'
@@ -10,7 +10,7 @@ export type EntryType = 'general' | 'vet_visit' | 'medication_change' | 'behavio
 
 export interface JournalEntry {
   id: string
-  date: string // YYYY-MM-DD
+  createdAt: string // ISO 8601 timestamp e.g. "2025-03-17T15:40:00Z"
   type: EntryType
   important: boolean
   note: string
@@ -49,20 +49,23 @@ export const SYMPTOMS: { emoji: string; label: string }[] = [
 
 const BUILTIN_SYMPTOM_LABELS = new Set(SYMPTOMS.map((s) => s.label))
 
-export function todayISO(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+export function nowISO(): string {
+  return new Date().toISOString()
 }
 
-export function formatDateDisplay(iso: string): string {
-  if (!iso) return ''
-  const [year, month, day] = iso.split('-').map(Number)
-  const date = new Date(year, month - 1, day)
-  return date.toLocaleDateString('en-GB', {
+export function formatDateDisplay(isoTimestamp: string): string {
+  if (!isoTimestamp) return ''
+  const date = new Date(isoTimestamp)
+  const datePart = date.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   })
+  const timePart = date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${datePart} at ${timePart}`
 }
 
 /* ─── Component ─── */
@@ -80,7 +83,6 @@ export function AddEntrySheet({
   petName,
   onAdd,
 }: AddEntrySheetProps) {
-  const [date, setDate] = useState(todayISO)
   const [entryType, setEntryType] = useState<EntryType>('general')
   const [important, setImportant] = useState(false)
   const [note, setNote] = useState('')
@@ -111,7 +113,6 @@ export function AddEntrySheet({
   }, [open])
 
   function resetForm() {
-    setDate(todayISO())
     setEntryType('general')
     setImportant(false)
     setNote('')
@@ -129,7 +130,7 @@ export function AddEntrySheet({
 
   function handleAdd() {
     if (!note.trim()) return
-    onAdd({ id: `${Date.now()}`, date, type: entryType, important, note: note.trim(), symptoms, photos })
+    onAdd({ id: `${Date.now()}`, createdAt: nowISO(), type: entryType, important, note: note.trim(), symptoms, photos })
     resetForm()
   }
 
@@ -197,25 +198,6 @@ export function AddEntrySheet({
   return (
     <>
       <BottomSheet open={open} onClose={handleClose} title="New entry" titleIcon={titleIcon} headerAction={starToggle}>
-        {/* Date */}
-        <div className="mb-[16px]">
-          <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
-            Date
-          </label>
-          <div className="relative">
-            <div className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] flex items-center justify-between">
-              <span>{formatDateDisplay(date)}</span>
-              <Calendar className="w-[16px] h-[16px] text-[#78716C] shrink-0" />
-            </div>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="absolute inset-0 opacity-[0.01] cursor-pointer w-full"
-            />
-          </div>
-        </div>
-
         {/* Entry type */}
         <div className="mb-[16px]">
           <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
