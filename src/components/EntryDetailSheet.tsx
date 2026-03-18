@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { X, BookOpen, Pencil, Calendar, Camera, Plus } from 'lucide-react'
-import type { JournalEntry } from './AddEntrySheet'
-import { SYMPTOMS, formatDateDisplay, todayISO } from './AddEntrySheet'
+import { X, BookOpen, Pencil, Calendar, Camera, Plus, ChevronDown } from 'lucide-react'
+import type { JournalEntry, EntryType } from './AddEntrySheet'
+import { SYMPTOMS, ENTRY_TYPE_LABELS, formatDateDisplay, todayISO } from './AddEntrySheet'
 import { compressPhoto } from '../utils/imageUtils'
 
 const BUILTIN_SYMPTOM_LABELS = new Set(SYMPTOMS.map((s) => s.label))
@@ -30,29 +30,54 @@ export function EntryDetailSheet({
 }: EntryDetailSheetProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editDate, setEditDate] = useState('')
+  const [editType, setEditType] = useState<EntryType>('general')
   const [editNote, setEditNote] = useState('')
   const [editSymptoms, setEditSymptoms] = useState<string[]>([])
   const [editCustomSymptoms, setEditCustomSymptoms] = useState<string[]>([])
+  const [showAddSymptom, setShowAddSymptom] = useState(false)
   const [customInput, setCustomInput] = useState('')
   const [editPhotos, setEditPhotos] = useState<string[]>([])
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const dragControls = useDragControls()
 
   // Reset state whenever the sheet opens with a new entry
   useEffect(() => {
     if (open && entry) {
       setEditDate(entry.date)
+      setEditType(entry.type ?? 'general')
       setEditNote(entry.note)
       setEditSymptoms([...entry.symptoms])
       setEditCustomSymptoms(entry.symptoms.filter((s) => !BUILTIN_SYMPTOM_LABELS.has(s)))
+      setShowAddSymptom(false)
       setCustomInput('')
       setEditPhotos([...(entry.photos ?? [])])
       setIsEditing(false)
       setShowDeleteConfirm(false)
     }
   }, [open])
+
+  // Auto-expand textarea on editNote change
+  useEffect(() => {
+    const el = textareaRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
+    }
+  }, [editNote])
+
+  // Auto-expand textarea when edit mode activates
+  useEffect(() => {
+    if (isEditing) {
+      const el = textareaRef.current
+      if (el) {
+        el.style.height = 'auto'
+        el.style.height = `${el.scrollHeight}px`
+      }
+    }
+  }, [isEditing])
 
   // Prevent background scroll
   useEffect(() => {
@@ -64,6 +89,15 @@ export function EntryDetailSheet({
     }
   }, [open])
 
+  // Debounced autosave
+  useEffect(() => {
+    if (!isEditing || !editNote.trim()) return
+    const timer = setTimeout(() => {
+      onEdit({ ...entry!, date: editDate, type: editType, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [editNote, editSymptoms, editPhotos, editDate, editType, isEditing])
+
   if (!entry) return null
 
   function handleClose() {
@@ -71,22 +105,6 @@ export function EntryDetailSheet({
     setShowDeleteConfirm(false)
     setLightboxSrc(null)
     onClose()
-  }
-
-  function handleCancelEdit() {
-    setEditDate(entry!.date)
-    setEditNote(entry!.note)
-    setEditSymptoms([...entry!.symptoms])
-    setEditCustomSymptoms(entry!.symptoms.filter((s) => !BUILTIN_SYMPTOM_LABELS.has(s)))
-    setCustomInput('')
-    setEditPhotos([...(entry!.photos ?? [])])
-    setIsEditing(false)
-  }
-
-  function handleSave() {
-    if (!editNote.trim()) return
-    onEdit({ ...entry!, date: editDate, note: editNote.trim(), symptoms: editSymptoms, photos: editPhotos })
-    setIsEditing(false)
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -119,12 +137,17 @@ export function EntryDetailSheet({
     )
   }
 
+  function removeSymptom(label: string) {
+    setEditSymptoms((prev) => prev.filter((s) => s !== label))
+  }
+
   function addCustomSymptom() {
     const trimmed = customInput.trim()
     if (!trimmed) return
     if (BUILTIN_SYMPTOM_LABELS.has(trimmed)) {
       toggleSymptom(trimmed)
       setCustomInput('')
+      setShowAddSymptom(false)
       return
     }
     if (!editCustomSymptoms.includes(trimmed)) {
@@ -132,6 +155,7 @@ export function EntryDetailSheet({
     }
     setEditSymptoms((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]))
     setCustomInput('')
+    setShowAddSymptom(false)
   }
 
   const symptomEmojiMap = Object.fromEntries(
@@ -211,9 +235,13 @@ export function EntryDetailSheet({
                       Entry details
                     </h3>
                     {isEditing && (
-                      <span className="font-dm-sans font-normal text-[13px] text-[#78716C]">
-                        Editing
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="font-dm-sans font-semibold text-[13px] text-[#C4623A] hover:text-[#A8502E] transition-colors"
+                      >
+                        Done
+                      </button>
                     )}
                   </div>
 
@@ -246,17 +274,38 @@ export function EntryDetailSheet({
                           </div>
                         </div>
 
+                        {/* Entry type */}
+                        <div>
+                          <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
+                            Entry type
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={editType}
+                              onChange={(e) => setEditType(e.target.value as EntryType)}
+                              className="w-full appearance-none bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] outline-none focus:border-[#D4C8BA] transition-colors cursor-pointer"
+                            >
+                              {(Object.entries(ENTRY_TYPE_LABELS) as [EntryType, string][]).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-[14px] top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-[#78716C] pointer-events-none" />
+                          </div>
+                        </div>
+
                         {/* Note */}
                         <div>
                           <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[6px] block">
                             How is {petName} doing?
                           </label>
                           <textarea
+                            ref={textareaRef}
                             value={editNote}
                             onChange={(e) => setEditNote(e.target.value)}
-                            rows={4}
+                            rows={3}
                             placeholder="e.g. Good energy today, ate well..."
-                            className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors resize-none"
+                            style={{ resize: 'none', overflow: 'hidden' }}
+                            className="w-full bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
                           />
                         </div>
 
@@ -265,6 +314,30 @@ export function EntryDetailSheet({
                           <label className="font-dm-sans font-medium text-[13px] text-[#78716C] mb-[10px] block">
                             Any symptoms?
                           </label>
+
+                          {/* Selected symptom pills */}
+                          {editSymptoms.length > 0 && (
+                            <div className="flex flex-wrap gap-[6px] mb-[10px]">
+                              {editSymptoms.map((label) => (
+                                <span
+                                  key={label}
+                                  className="inline-flex items-center gap-[4px] bg-[#FAF6F0] border border-[#E4D9CC] rounded-full px-[10px] py-[3px] font-dm-sans text-[12px] text-[#1C1917]"
+                                >
+                                  {label}
+                                  <button
+                                    type="button"
+                                    onClick={() => removeSymptom(label)}
+                                    className="hover:text-[#C4623A] transition-colors"
+                                    aria-label={`Remove ${label}`}
+                                  >
+                                    <X className="w-[12px] h-[12px]" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Preset symptom chips */}
                           <div className="flex flex-wrap gap-[8px] mb-[10px]">
                             {SYMPTOMS.map(({ emoji, label }) => (
                               <button
@@ -281,46 +354,52 @@ export function EntryDetailSheet({
                                 <span>{label}</span>
                               </button>
                             ))}
-                            {editCustomSymptoms.map((label) => (
-                              <button
-                                key={label}
-                                type="button"
-                                onClick={() => toggleSymptom(label)}
-                                className={`flex items-center gap-[6px] rounded-full px-[12px] py-[6px] font-dm-sans font-normal text-[13px] transition-colors ${
-                                  editSymptoms.includes(label)
-                                    ? 'bg-[#C4623A] text-white'
-                                    : 'bg-[#F0E8DA] text-[#78716C]'
-                                }`}
-                              >
-                                <span>{label}</span>
-                              </button>
-                            ))}
                           </div>
+
                           {/* Add custom symptom */}
-                          <div className="flex gap-[8px]">
-                            <input
-                              type="text"
-                              value={customInput}
-                              onChange={(e) => setCustomInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault()
-                                  addCustomSymptom()
-                                }
-                              }}
-                              placeholder="Add your own…"
-                              className="flex-1 bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[12px] py-[8px] font-dm-sans text-[13px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
-                            />
+                          {showAddSymptom ? (
+                            <div className="flex gap-[8px]">
+                              <input
+                                type="text"
+                                value={customInput}
+                                onChange={(e) => setCustomInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    addCustomSymptom()
+                                  }
+                                }}
+                                autoFocus
+                                placeholder="Add a symptom"
+                                className="flex-1 bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[14px] py-[10px] font-dm-sans text-[15px] text-[#1C1917] placeholder:text-[#A8A29E] outline-none focus:border-[#D4C8BA] transition-colors"
+                              />
+                              <button
+                                type="button"
+                                onClick={addCustomSymptom}
+                                className="border border-[#C4623A] rounded-[8px] px-[12px] py-[9px] font-dm-sans font-semibold text-[13px] text-[#C4623A] hover:bg-[#FDF0EB] transition-all flex items-center gap-[4px] shrink-0"
+                              >
+                                <Plus className="w-[14px] h-[14px]" />
+                                Add
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setShowAddSymptom(false); setCustomInput('') }}
+                                className="w-[38px] h-[38px] rounded-[8px] flex items-center justify-center hover:bg-[#FAF6F0] transition-colors shrink-0"
+                                aria-label="Cancel"
+                              >
+                                <X className="w-[14px] h-[14px] text-[#78716C]" />
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={addCustomSymptom}
-                              disabled={!customInput.trim()}
-                              className="w-[36px] h-[36px] rounded-[10px] bg-[#F0E8DA] flex items-center justify-center hover:bg-[#E4D9CC] transition-colors disabled:opacity-40"
-                              aria-label="Add custom symptom"
+                              onClick={() => setShowAddSymptom(true)}
+                              className="flex items-center gap-[4px] font-dm-sans font-normal text-[13px] text-[#78716C] hover:text-[#1C1917] transition-colors"
                             >
-                              <Plus className="w-[16px] h-[16px] text-[#78716C]" />
+                              <Plus className="w-[13px] h-[13px]" />
+                              Add symptom
                             </button>
-                          </div>
+                          )}
                         </div>
 
                         {/* Photos */}
@@ -440,31 +519,6 @@ export function EntryDetailSheet({
                     )}
                   </AnimatePresence>
                 </div>
-
-                {/* Edit action buttons */}
-                {isEditing && (
-                  <div className="flex gap-[12px] mb-[20px]">
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="flex-1 rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-[#78716C] hover:bg-[#F0E8DA] transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSave}
-                      disabled={!editNote.trim()}
-                      className={`flex-1 rounded-[8px] px-[20px] py-[12px] font-dm-sans font-semibold text-[13px] text-white transition-all ${
-                        editNote.trim()
-                          ? 'bg-[#C4623A] hover:bg-[#A8502E] active:scale-[0.98]'
-                          : 'bg-[#D4C8BA] cursor-not-allowed'
-                      }`}
-                    >
-                      Save
-                    </button>
-                  </div>
-                )}
 
                 {/* Delete entry */}
                 <div className="border-t border-[#E4D9CC] pt-[16px]">
