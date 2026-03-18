@@ -4,7 +4,7 @@ import type { JournalEntry } from '../components/AddEntrySheet'
 function toEntry(row: Record<string, unknown>): JournalEntry {
   return {
     id: row.id as string,
-    date: row.entry_date as string,
+    createdAt: row.entry_at as string,
     type: (row.entry_type as JournalEntry['type']) ?? 'general',
     important: (row.important as boolean) ?? false,
     note: row.note as string,
@@ -15,7 +15,6 @@ function toEntry(row: Record<string, unknown>): JournalEntry {
 
 function toRow(data: Omit<JournalEntry, 'id'>) {
   return {
-    entry_date: data.date,
     entry_type: data.type ?? 'general',
     important: data.important ?? false,
     note: data.note,
@@ -29,7 +28,7 @@ export async function getJournalEntries(petId: string): Promise<JournalEntry[]> 
     .from('journal_entries')
     .select('*')
     .eq('pet_id', petId)
-    .order('entry_date', { ascending: false })
+    .order('entry_at', { ascending: false })
   if (error) throw error
   return (data ?? []).map(toEntry)
 }
@@ -40,7 +39,11 @@ export async function createEntry(
 ): Promise<JournalEntry> {
   const { data: row, error } = await supabase
     .from('journal_entries')
-    .insert({ pet_id: petId, ...toRow(data) })
+    .insert({
+      pet_id: petId,
+      entry_at: new Date().toISOString(),
+      ...toRow(data),
+    })
     .select()
     .single()
   if (error) throw error

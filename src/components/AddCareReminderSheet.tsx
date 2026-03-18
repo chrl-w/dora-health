@@ -2,7 +2,18 @@ import { useState, useEffect } from 'react'
 import { Bell, Calendar, Droplets, Package, Stethoscope } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
 import { REMINDER_TYPE_CONFIG, type CareReminderData } from '../utils/reminderUtils'
-import { formatDateDisplay, todayISO } from './AddEntrySheet'
+
+function todayISO(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function formatDateDisplay(iso: string): string {
+  if (!iso) return ''
+  const [year, month, day] = iso.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 /* ─── Types ─── */
 
