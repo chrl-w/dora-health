@@ -1,24 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, BookOpen, SlidersHorizontal, Star, X, Camera } from 'lucide-react'
-import { AddEntrySheet, type JournalEntry, type EntryType, SYMPTOMS, ENTRY_TYPES } from './AddEntrySheet'
+import { AddEntrySheet, type JournalEntry, type EntryType, SYMPTOMS, ENTRY_TYPES, ENTRY_TYPE_LABELS } from './AddEntrySheet'
 import { EntryDetailSheet } from './EntryDetailSheet'
 import { getJournalEntries, createEntry, updateEntry, deleteEntry } from '../services/journalService'
-
-/* ─── Types ─── */
-
-interface FilterState {
-  type: EntryType | null
-  symptom: string | null
-  dateRange: 'week' | 'month' | 'all'
-  importantOnly: boolean
-}
-
-const DEFAULT_FILTERS: FilterState = {
-  type: null,
-  symptom: null,
-  dateRange: 'all',
-  importantOnly: false,
-}
 
 /* ─── Helpers ─── */
 
@@ -40,27 +24,25 @@ function formatRelativeDate(isoDate: string): string {
   })
 }
 
-function isFiltersActive(f: FilterState): boolean {
-  return f.type !== null || f.symptom !== null || f.dateRange !== 'all' || f.importantOnly
+function todayISO(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
-function applyFilters(entries: JournalEntry[], filters: FilterState): JournalEntry[] {
-  return entries.filter((entry) => {
-    if (filters.importantOnly && !entry.important) return false
-    if (filters.type && entry.type !== filters.type) return false
-    if (filters.symptom && !entry.symptoms.includes(filters.symptom)) return false
-    if (filters.dateRange !== 'all') {
-      const now = new Date()
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      const [y, m, d] = entry.date.split('-').map(Number)
-      const entryDate = new Date(y, m - 1, d)
-      const diffDays = Math.round((today.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24))
-      if (filters.dateRange === 'week' && diffDays > 7) return false
-      if (filters.dateRange === 'month' && diffDays > 30) return false
-    }
-    return true
-  })
+function startOfWeekISO(): string {
+  const now = new Date()
+  const day = now.getDay()
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+  const monday = new Date(new Date().setDate(diff))
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
 }
+
+function startOfMonthISO(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+type DateFilter = 'all' | 'today' | 'week' | 'month'
 
 /* ─── Component ─── */
 
@@ -75,8 +57,33 @@ export function Journal({ petName, petId }: JournalProps) {
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Filter state
   const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
+  const [openPopover, setOpenPopover] = useState<'type' | 'symptoms' | 'date' | null>(null)
+  const [filterTypes, setFilterTypes] = useState<EntryType[]>([])
+  const [filterSymptoms, setFilterSymptoms] = useState<string[]>([])
+  const [filterDate, setFilterDate] = useState<DateFilter>('all')
+  const [importantOnly, setImportantOnly] = useState(false)
+
+  const typePopoverRef = useRef<HTMLDivElement>(null)
+  const symptomsPopoverRef = useRef<HTMLDivElement>(null)
+  const datePopoverRef = useRef<HTMLDivElement>(null)
+
+  // Close popover on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node
+      const insideType = typePopoverRef.current?.contains(target)
+      const insideSymptoms = symptomsPopoverRef.current?.contains(target)
+      const insideDate = datePopoverRef.current?.contains(target)
+      if (!insideType && !insideSymptoms && !insideDate) {
+        setOpenPopover(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   // Load from Supabase when petId is set
   useEffect(() => {
@@ -89,17 +96,35 @@ export function Journal({ petName, petId }: JournalProps) {
   }, [petId])
 
   const sortedEntries = [...entries].sort((a, b) => b.date.localeCompare(a.date))
-  const filteredEntries = applyFilters(sortedEntries, filters)
+
+  // All unique symptoms across entries
+  const allSymptoms = Array.from(new Set(sortedEntries.flatMap((e) => e.symptoms)))
+
+  // Apply filters
+  const filteredEntries = sortedEntries.filter((entry) => {
+    if (importantOnly && !entry.important) return false
+    if (filterTypes.length > 0 && !filterTypes.includes(entry.type ?? 'general')) return false
+    if (filterSymptoms.length > 0 && !filterSymptoms.some((s) => entry.symptoms.includes(s))) return false
+    if (filterDate === 'today' && entry.date !== todayISO()) return false
+    if (filterDate === 'week' && entry.date < startOfWeekISO()) return false
+    if (filterDate === 'month' && entry.date < startOfMonthISO()) return false
+    return true
+  })
+
   const visibleEntries = showAll ? filteredEntries : filteredEntries.slice(0, 3)
-
-  // Collect all unique symptoms across entries (for filter chips)
-  const allSymptoms = Array.from(new Set(entries.flatMap((e) => e.symptoms)))
-
-  const filtersActive = isFiltersActive(filters)
 
   const symptomEmojiMap = Object.fromEntries(
     SYMPTOMS.map(({ emoji, label }) => [label, emoji]),
   )
+
+  const hasActiveFilters = filterTypes.length > 0 || filterSymptoms.length > 0 || filterDate !== 'all' || importantOnly
+
+  function clearFilters() {
+    setFilterTypes([])
+    setFilterSymptoms([])
+    setFilterDate('all')
+    setImportantOnly(false)
+  }
 
   async function handleAdd(entry: JournalEntry) {
     if (petId) {
@@ -128,8 +153,11 @@ export function Journal({ petName, petId }: JournalProps) {
     setSelectedEntry(null)
   }
 
-  function clearFilters() {
-    setFilters(DEFAULT_FILTERS)
+  const dateFilterLabels: Record<DateFilter, string> = {
+    all: 'All time',
+    today: 'Today',
+    week: 'This week',
+    month: 'This month',
   }
 
   return (
@@ -140,6 +168,7 @@ export function Journal({ petName, petId }: JournalProps) {
           Journal
         </h2>
         <div className="flex items-center gap-[8px]">
+          {/* Filter toggle */}
           <button
             type="button"
             onClick={() => setShowFilters((v) => !v)}
@@ -147,10 +176,11 @@ export function Journal({ petName, petId }: JournalProps) {
             aria-label="Toggle filters"
           >
             <SlidersHorizontal className="w-[15px] h-[15px] text-[#78716C]" />
-            {filtersActive && (
-              <span className="absolute top-[4px] right-[4px] w-[7px] h-[7px] rounded-full bg-[#C4623A]" />
+            {hasActiveFilters && (
+              <span className="absolute top-[5px] right-[5px] w-[6px] h-[6px] rounded-full bg-[#C4623A]" />
             )}
           </button>
+          {/* Add entry */}
           <button
             type="button"
             onClick={() => setIsAdding(true)}
@@ -162,111 +192,137 @@ export function Journal({ petName, petId }: JournalProps) {
         </div>
       </div>
 
-      {/* Filter panel */}
+      {/* Filter row */}
       {showFilters && (
-        <div className="mt-[12px] flex flex-col gap-[10px]">
-          {/* Row 1: Date range */}
-          <div className="flex items-center gap-[6px] flex-wrap">
-            {(['all', 'week', 'month'] as const).map((range) => {
-              const label = range === 'all' ? 'All' : range === 'week' ? 'This week' : 'This month'
-              return (
-                <button
-                  key={range}
-                  type="button"
-                  onClick={() => setFilters((f) => ({ ...f, dateRange: range }))}
-                  className={`rounded-full px-[11px] py-[5px] font-dm-sans font-normal text-[12px] transition-colors ${
-                    filters.dateRange === range
-                      ? 'bg-[#C4623A] text-white'
-                      : 'bg-[#F0E8DA] text-[#78716C]'
-                  }`}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Row 2: Entry type */}
-          <div className="flex items-center gap-[6px] overflow-x-auto -mx-[24px] px-[24px] pb-[2px] scrollbar-hide">
+        <div className="flex items-center gap-[8px] mt-[10px] flex-wrap">
+          {/* Type filter */}
+          <div className="relative" ref={typePopoverRef}>
             <button
               type="button"
-              onClick={() => setFilters((f) => ({ ...f, type: null }))}
-              className={`rounded-full px-[11px] py-[5px] font-dm-sans font-normal text-[12px] whitespace-nowrap shrink-0 transition-colors ${
-                filters.type === null
-                  ? 'bg-[#C4623A] text-white'
-                  : 'bg-[#F0E8DA] text-[#78716C]'
+              onClick={() => setOpenPopover(openPopover === 'type' ? null : 'type')}
+              className={`rounded-full px-[10px] py-[5px] font-dm-sans text-[12px] border transition-colors ${
+                filterTypes.length > 0
+                  ? 'border-[#C4623A] text-[#C4623A]'
+                  : 'border-[#D4C8BA] text-[#78716C] bg-[#FAF6F0]'
               }`}
             >
-              All types
+              Type{filterTypes.length > 0 ? ` · ${filterTypes.length}` : ' ▾'}
             </button>
-            {ENTRY_TYPES.filter((t) => t.type !== 'general').map(({ type, label, Icon }) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setFilters((f) => ({ ...f, type: f.type === type ? null : type }))}
-                className={`flex items-center gap-[5px] rounded-full px-[11px] py-[5px] font-dm-sans font-normal text-[12px] whitespace-nowrap shrink-0 transition-colors ${
-                  filters.type === type
-                    ? 'bg-[#C4623A] text-white'
-                    : 'bg-[#F0E8DA] text-[#78716C]'
-                }`}
-              >
-                <Icon className="w-[11px] h-[11px]" />
-                <span>{label}</span>
-              </button>
-            ))}
+            {openPopover === 'type' && (
+              <div className="absolute top-full left-0 mt-[6px] z-10 bg-[#FAF6F0] border border-[#E4D9CC] rounded-[12px] shadow-md p-[12px] min-w-[200px]">
+                {ENTRY_TYPES.map(({ type, label, Icon }) => (
+                  <label key={type} className="flex items-center gap-[8px] py-[6px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filterTypes.includes(type)}
+                      onChange={() =>
+                        setFilterTypes((prev) =>
+                          prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type],
+                        )
+                      }
+                      className="accent-[#C4623A]"
+                    />
+                    <Icon className="w-[12px] h-[12px] text-[#78716C] shrink-0" />
+                    <span className="font-dm-sans text-[13px] text-[#1C1917]">{label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Row 3: Symptoms (only if any entries have symptoms) */}
+          {/* Symptoms filter — hidden if no entries have symptoms */}
           {allSymptoms.length > 0 && (
-            <div className="flex items-center gap-[6px] overflow-x-auto -mx-[24px] px-[24px] pb-[2px] scrollbar-hide">
-              {allSymptoms.map((symptom) => {
-                const emoji = symptomEmojiMap[symptom]
-                return (
-                  <button
-                    key={symptom}
-                    type="button"
-                    onClick={() =>
-                      setFilters((f) => ({ ...f, symptom: f.symptom === symptom ? null : symptom }))
-                    }
-                    className={`flex items-center gap-[4px] rounded-full px-[11px] py-[5px] font-dm-sans font-normal text-[12px] whitespace-nowrap shrink-0 transition-colors ${
-                      filters.symptom === symptom
-                        ? 'bg-[#C4623A] text-white'
-                        : 'bg-[#F0E8DA] text-[#78716C]'
-                    }`}
-                  >
-                    {emoji && <span>{emoji}</span>}
-                    <span>{symptom}</span>
-                  </button>
-                )
-              })}
+            <div className="relative" ref={symptomsPopoverRef}>
+              <button
+                type="button"
+                onClick={() => setOpenPopover(openPopover === 'symptoms' ? null : 'symptoms')}
+                className={`rounded-full px-[10px] py-[5px] font-dm-sans text-[12px] border transition-colors ${
+                  filterSymptoms.length > 0
+                    ? 'border-[#C4623A] text-[#C4623A]'
+                    : 'border-[#D4C8BA] text-[#78716C] bg-[#FAF6F0]'
+                }`}
+              >
+                Symptoms{filterSymptoms.length > 0 ? ` · ${filterSymptoms.length}` : ' ▾'}
+              </button>
+              {openPopover === 'symptoms' && (
+                <div className="absolute top-full left-0 mt-[6px] z-10 bg-[#FAF6F0] border border-[#E4D9CC] rounded-[12px] shadow-md p-[12px] min-w-[180px]">
+                  {allSymptoms.map((symptom) => (
+                    <label key={symptom} className="flex items-center gap-[8px] py-[6px] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filterSymptoms.includes(symptom)}
+                        onChange={() =>
+                          setFilterSymptoms((prev) =>
+                            prev.includes(symptom) ? prev.filter((s) => s !== symptom) : [...prev, symptom],
+                          )
+                        }
+                        className="accent-[#C4623A]"
+                      />
+                      <span className="font-dm-sans text-[13px] text-[#1C1917]">
+                        {symptomEmojiMap[symptom] ? `${symptomEmojiMap[symptom]} ` : ''}{symptom}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Row 4: Important only + clear */}
-          <div className="flex items-center gap-[8px]">
+          {/* Date filter */}
+          <div className="relative" ref={datePopoverRef}>
             <button
               type="button"
-              onClick={() => setFilters((f) => ({ ...f, importantOnly: !f.importantOnly }))}
-              className={`flex items-center gap-[5px] rounded-full px-[11px] py-[5px] font-dm-sans font-normal text-[12px] transition-colors ${
-                filters.importantOnly
-                  ? 'bg-[#C4623A] text-white'
-                  : 'bg-[#F0E8DA] text-[#78716C]'
+              onClick={() => setOpenPopover(openPopover === 'date' ? null : 'date')}
+              className={`rounded-full px-[10px] py-[5px] font-dm-sans text-[12px] border transition-colors ${
+                filterDate !== 'all'
+                  ? 'border-[#C4623A] text-[#C4623A]'
+                  : 'border-[#D4C8BA] text-[#78716C] bg-[#FAF6F0]'
               }`}
             >
-              <Star className={`w-[11px] h-[11px] ${filters.importantOnly ? 'fill-white' : ''}`} />
-              <span>Important only</span>
+              {filterDate !== 'all' ? dateFilterLabels[filterDate] : 'Date ▾'}
             </button>
-            {filtersActive && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="font-dm-sans font-medium text-[12px] text-[#C4623A] hover:text-[#A8502E] transition-colors flex items-center gap-[3px]"
-              >
-                <X className="w-[10px] h-[10px]" />
-                Clear filters
-              </button>
+            {openPopover === 'date' && (
+              <div className="absolute top-full left-0 mt-[6px] z-10 bg-[#FAF6F0] border border-[#E4D9CC] rounded-[12px] shadow-md p-[12px] min-w-[160px]">
+                {(Object.entries(dateFilterLabels) as [DateFilter, string][]).map(([value, label]) => (
+                  <label key={value} className="flex items-center gap-[8px] py-[6px] cursor-pointer">
+                    <input
+                      type="radio"
+                      name="date-filter"
+                      checked={filterDate === value}
+                      onChange={() => { setFilterDate(value); setOpenPopover(null) }}
+                      className="accent-[#C4623A]"
+                    />
+                    <span className="font-dm-sans text-[13px] text-[#1C1917]">{label}</span>
+                  </label>
+                ))}
+              </div>
             )}
           </div>
+
+          {/* Important toggle */}
+          <button
+            type="button"
+            onClick={() => setImportantOnly((v) => !v)}
+            className={`rounded-full px-[10px] py-[5px] font-dm-sans text-[12px] border transition-colors flex items-center gap-[4px] ${
+              importantOnly
+                ? 'bg-[#C4623A] text-white border-[#C4623A]'
+                : 'border-[#D4C8BA] text-[#78716C] bg-[#FAF6F0]'
+            }`}
+          >
+            <Star className={`w-[11px] h-[11px] ${importantOnly ? 'fill-white' : ''}`} />
+          </button>
+
+          {/* Clear */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="flex items-center gap-[4px] font-dm-sans text-[12px] text-[#78716C] hover:text-[#1C1917] transition-colors"
+            >
+              <X className="w-[11px] h-[11px]" />
+              Clear
+            </button>
+          )}
         </div>
       )}
 
@@ -314,7 +370,7 @@ export function Journal({ petName, petId }: JournalProps) {
           <div className="flex flex-col gap-[10px] mt-[14px]">
             {visibleEntries.map((entry) => {
               const hasSymptoms = entry.symptoms.length > 0
-              const hasPhotos = entry.photos.length > 0
+              const hasPhotos = (entry.photos ?? []).length > 0
               const firstSymptomEmoji = hasSymptoms ? symptomEmojiMap[entry.symptoms[0]] : null
               const visibleSymptoms = entry.symptoms.slice(0, 3)
               const overflowCount = entry.symptoms.length - 3
@@ -338,7 +394,7 @@ export function Journal({ petName, petId }: JournalProps) {
                         {entryTypeMeta && (
                           <span className="inline-flex items-center gap-[3px] bg-[#F0E8DA] rounded-full px-[8px] py-[1px] font-dm-sans font-normal text-[11px] text-[#78716C]">
                             <entryTypeMeta.Icon className="w-[10px] h-[10px]" />
-                            {entryTypeMeta.label}
+                            {ENTRY_TYPE_LABELS[entry.type]}
                           </span>
                         )}
                         {entry.important && (
@@ -351,7 +407,7 @@ export function Journal({ petName, petId }: JournalProps) {
                     </div>
                     {hasPhotos && hasSymptoms ? (
                       <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0 font-dm-sans text-[12px] text-[#78716C]">
-                        📷 {entry.photos.length}
+                        📷 {(entry.photos ?? []).length}
                       </div>
                     ) : hasPhotos ? (
                       <div className="w-[32px] h-[32px] rounded-full bg-[#F0E8DA] flex items-center justify-center shrink-0">

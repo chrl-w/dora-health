@@ -5,22 +5,22 @@ function toEntry(row: Record<string, unknown>): JournalEntry {
   return {
     id: row.id as string,
     date: row.entry_date as string,
+    type: (row.entry_type as JournalEntry['type']) ?? 'general',
+    important: (row.important as boolean) ?? false,
     note: row.note as string,
     symptoms: (row.symptoms ?? []) as string[],
     photos: (row.photos ?? []) as string[],
-    type: (row.entry_type as JournalEntry['type']) ?? 'general',
-    important: (row.important as boolean) ?? false,
   }
 }
 
 function toRow(data: Omit<JournalEntry, 'id'>) {
   return {
     entry_date: data.date,
+    entry_type: data.type ?? 'general',
+    important: data.important ?? false,
     note: data.note,
     symptoms: data.symptoms,
     photos: data.photos,
-    entry_type: data.type,
-    important: data.important,
   }
 }
 
