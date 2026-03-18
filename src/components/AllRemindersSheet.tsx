@@ -47,11 +47,12 @@ function getBadgeLabel(daysUntil: number): string {
   return `In ${daysUntil} days`
 }
 
-function getBadgeColour(daysUntil: number): string {
-  if (daysUntil < 0) return '#D4536D'
-  if (daysUntil <= 1) return '#C4623A'
-  if (daysUntil <= 7) return '#8B7355'
-  return '#78716C'
+function getBadgeStyle(daysUntil: number): { text: string; bg: string } {
+  if (daysUntil < 0) return { text: '#C4393A', bg: '#FDE8E8' }
+  if (daysUntil === 0) return { text: '#B36B00', bg: '#FFF5DC' }
+  if (daysUntil === 1) return { text: '#B36B00', bg: '#FFF5DC' }
+  if (daysUntil <= 7) return { text: '#7A6A3A', bg: '#FBF3DC' }
+  return { text: '#78716C', bg: '#F0E8DA' }
 }
 
 /* ─── Component ─── */
@@ -79,8 +80,8 @@ export function AllRemindersSheet({
     .sort((a, b) => a.daysUntil - b.daysUntil)
 
   const groups = [
-    { key: 'overdue', label: 'Overdue', colour: '#D4536D', items: overdue },
-    { key: 'dueSoon', label: 'Due soon', colour: '#C4623A', items: dueSoon },
+    { key: 'overdue', label: 'Overdue', colour: '#C4393A', items: overdue },
+    { key: 'dueSoon', label: 'Due soon', colour: '#B36B00', items: dueSoon },
     { key: 'upcoming', label: 'Upcoming', colour: '#78716C', items: upcoming },
   ]
 
@@ -136,7 +137,7 @@ export function AllRemindersSheet({
                     {items.map((reminder) => {
                       const TypeIcon = TYPE_ICON_MAP[reminder.type]
                       const badgeLabel = getBadgeLabel(reminder.daysUntil)
-                      const badgeColour = getBadgeColour(reminder.daysUntil)
+                      const badgeStyle = getBadgeStyle(reminder.daysUntil)
 
                       return (
                         <div
@@ -166,8 +167,8 @@ export function AllRemindersSheet({
 
                           {/* Timing badge */}
                           <span
-                            className="shrink-0 font-dm-sans font-medium text-[11px] px-[8px] py-[3px] rounded-full text-white"
-                            style={{ backgroundColor: badgeColour }}
+                            className="shrink-0 font-dm-sans font-medium text-[11px] px-[8px] py-[3px] rounded-full"
+                            style={{ color: badgeStyle.text, backgroundColor: badgeStyle.bg }}
                           >
                             {badgeLabel}
                           </span>

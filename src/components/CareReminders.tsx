@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Bell, Plus, Droplets, Package, Stethoscope } from 'lucide-react'
+import { Bell, Plus, Droplets, Package, Stethoscope, Pill } from 'lucide-react'
 import { computeMedicationReminders, computeCareReminders, REMINDER_TYPE_CONFIG } from '../utils/reminderUtils'
 import { MedicationDetailSheet } from './MedicationDetailSheet'
 import { AddCareReminderSheet } from './AddCareReminderSheet'
@@ -12,6 +12,7 @@ import {
 } from '../services/careRemindersService'
 import type { Medication, StoredDoseRecord } from '../services/medicationService'
 import type { CareReminderData, Reminder } from '../utils/reminderUtils'
+import { lightTint } from '../utils/colourUtils'
 
 /* ─── Sheet state ─── */
 
@@ -25,6 +26,29 @@ const TYPE_ICON_MAP = {
   vet_visit: Stethoscope,
   custom: Bell,
 } as const
+
+/* ─── Urgency tokens ─── */
+
+function getUrgencyTokens(reminder: Reminder): { borderColour: string; subtitleColour: string } {
+  if (reminder.overdue) {
+    return { borderColour: '#C4393A', subtitleColour: '#C4393A' }
+  }
+  const today = new Date()
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const dueDay = new Date(
+    reminder.dueDate.getFullYear(),
+    reminder.dueDate.getMonth(),
+    reminder.dueDate.getDate(),
+  )
+  const daysUntil = Math.round((dueDay.getTime() - todayDay.getTime()) / 86_400_000)
+  if (daysUntil <= 5) {
+    return { borderColour: '#B36B00', subtitleColour: '#B36B00' }
+  }
+  if (daysUntil <= 14) {
+    return { borderColour: '#7A6A3A', subtitleColour: '#7A6A3A' }
+  }
+  return { borderColour: '#E4D9CC', subtitleColour: '#78716C' }
+}
 
 /* ─── Component ─── */
 
@@ -136,17 +160,21 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
                 ? careReminders.find((r) => `care-${r.id}` === reminder.id)
                 : null
 
+              const { borderColour, subtitleColour } = getUrgencyTokens(reminder)
+
               /* ── Care reminder card ── */
               if (isCare && careData) {
                 const TypeIcon = TYPE_ICON_MAP[careData.type]
                 const config = REMINDER_TYPE_CONFIG[careData.type]
-                const combinedTitle = `${reminder.title} — ${reminder.subtitle}`
 
                 return (
                   <div
                     key={reminder.id}
-                    className="border border-[#E4D9CC] rounded-[10px] px-[16px] py-[14px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] flex items-center gap-[12px]"
-                    style={{ backgroundColor: careData.surfaceColour }}
+                    className="rounded-[10px] px-[16px] py-[14px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] flex items-center gap-[12px] border"
+                    style={{
+                      backgroundColor: careData.surfaceColour,
+                      borderColor: borderColour,
+                    }}
                   >
                     {/* Type icon circle */}
                     <div
@@ -159,13 +187,14 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
                     {/* Text */}
                     <div className="flex-1 min-w-0">
                       <p className="font-dm-sans font-semibold text-[14px] text-[#1C1917] truncate">
-                        {combinedTitle}
+                        {reminder.title}
                       </p>
-                      {careData.notes && (
-                        <p className="font-dm-sans font-normal text-[12px] text-[#78716C] mt-[1px] truncate">
-                          {careData.notes}
-                        </p>
-                      )}
+                      <p
+                        className="font-dm-sans font-normal text-[12px] mt-[1px] truncate"
+                        style={{ color: subtitleColour }}
+                      >
+                        {reminder.subtitle}
+                      </p>
                     </div>
 
                     {/* Action button */}
@@ -187,25 +216,35 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
                 )
               }
 
-              /* ── Medication reminder card (unchanged) ── */
+              /* ── Medication reminder card ── */
               const showPulse = reminder.overdue || reminder.subtitle === 'due today'
+
               return (
                 <div
                   key={reminder.id}
-                  className="bg-[#FAF6F0] border border-[#E4D9CC] rounded-[10px] px-[16px] py-[14px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] flex items-center gap-[12px]"
+                  className="rounded-[10px] px-[16px] py-[14px] shadow-[0px_1px_4px_rgba(228,217,204,0.5)] flex items-center gap-[12px] border"
+                  style={{
+                    backgroundColor: lightTint(reminder.accentColour),
+                    borderColor: borderColour,
+                  }}
                 >
-                  {/* Pulsing dot */}
-                  <div className="relative shrink-0 flex items-center justify-center w-[10px] h-[10px]">
+                  {/* Icon pill with optional pulse ring */}
+                  <div className="relative shrink-0 w-[36px] h-[36px] flex items-center justify-center">
                     {showPulse && (
                       <span
-                        className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping"
+                        className="absolute inset-0 rounded-full animate-ping opacity-40"
                         style={{ backgroundColor: reminder.accentColour }}
                       />
                     )}
-                    <span
-                      className="relative inline-flex rounded-full w-[10px] h-[10px]"
-                      style={{ backgroundColor: reminder.accentColour }}
-                    />
+                    <div
+                      className="relative w-[36px] h-[36px] rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: lightTint(reminder.accentColour) }}
+                    >
+                      <Pill
+                        className="w-[18px] h-[18px]"
+                        style={{ color: reminder.accentColour }}
+                      />
+                    </div>
                   </div>
 
                   {/* Text */}
@@ -215,7 +254,7 @@ export function CareReminders({ conditions, medications, doseHistory, petId, onD
                     </p>
                     <p
                       className="font-dm-sans font-normal text-[12px] mt-[1px]"
-                      style={{ color: reminder.overdue ? '#DC2626' : '#78716C' }}
+                      style={{ color: subtitleColour }}
                     >
                       {reminder.subtitle}
                     </p>
