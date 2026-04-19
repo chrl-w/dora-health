@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Scale, Activity, Droplet, HeartPulse } from 'lucide-react'
+import { Scale, Activity, Droplet, HeartPulse, Wind } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { MetricDetailSheet } from './MetricDetailSheet'
 import { getMetricReadings, addReading, deleteReading } from '../services/metricsService'
@@ -38,6 +38,7 @@ export const METRIC_CONFIGS: MetricConfig[] = [
   { id: 'thyroid', name: 'Thyroid (T4)', unit: 'nmol/L', trend: 'lower_better', Icon: Activity },
   { id: 'kidney', name: 'Kidney (SDMA)', unit: 'µg/dL', trend: 'lower_better', Icon: Droplet },
   { id: 'heart_rate', name: 'Heart Rate', unit: 'bpm', trend: 'lower_better', Icon: HeartPulse },
+  { id: 'rrr', name: 'Resting Resp. Rate', unit: 'brpm', trend: 'lower_better', Icon: Wind },
 ]
 
 /* ─── Helpers ─── */
